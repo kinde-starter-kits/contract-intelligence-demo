@@ -1,0 +1,27 @@
+[project]
+name = "contract-review-crew"
+version = "0.1.0"
+description = "CrewAI service that reviews a contract on behalf of a human, authenticating as the crew M2M and calling the Contract Intelligence app over HTTP."
+requires-python = ">=3.10,<3.14"
+dependencies = [
+  "crewai>=0.130.0",
+  # The crew defaults to Claude; ship the Anthropic provider. Swap the key/model
+  # (CREW_LLM_MODEL + provider key) to use a different LLM.
+  "anthropic>=0.40.0",
+  "requests>=2.32.0",
+  "python-dotenv>=1.0.1",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0.0"]
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["contract_crew*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

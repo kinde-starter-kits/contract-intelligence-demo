@@ -17,6 +17,7 @@ const eslintConfig = [
       'node_modules/**',
       'convex/_generated/**',
       'vendor/**',
+      'agents/**',
       'next-env.d.ts'
     ]
   }
