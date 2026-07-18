@@ -1,0 +1,17 @@
+MASTER SERVICES AGREEMENT
+
+This Master Services Agreement ("Agreement") is entered into by and between Acme Corporation ("Provider") and the Customer.
+
+1. Term. This Agreement begins on the Effective Date and continues for an initial period of twelve (12) months, renewing automatically for successive twelve-month terms unless either party gives sixty (60) days written notice of non-renewal.
+
+2. Fees and Payment. Customer shall pay all fees within thirty (30) days of the invoice date. Late payments accrue interest at 1.5% per month. All fees are non-refundable except as expressly set out in Section 7.
+
+3. Confidentiality. Each party shall protect the other party's Confidential Information using at least the same degree of care it uses for its own confidential information, and in no event less than a reasonable degree of care.
+
+4. Limitation of Liability. In no event shall either party's aggregate liability exceed the total fees paid by Customer in the twelve (12) months preceding the event giving rise to the claim. Neither party is liable for indirect, incidental, or consequential damages.
+
+5. Indemnification. Provider shall indemnify Customer against third-party claims arising from Provider's gross negligence or willful misconduct, subject to the limitations in Section 4.
+
+6. Termination. Either party may terminate this Agreement for material breach that remains uncured thirty (30) days after written notice. Upon termination, Customer shall pay all fees accrued through the effective date of termination.
+
+7. Governing Law. This Agreement is governed by the laws of the State of Delaware, without regard to its conflict-of-laws principles. The parties consent to the exclusive jurisdiction of the state and federal courts located in Delaware.

@@ -1,0 +1,25 @@
+# Local Weaviate for development and the Phase 3 tenant-isolation check.
+#
+# A bare Weaviate instance with native multi-tenancy and NO vectorizer module —
+# vectors are computed client-side (all-MiniLM-L6-v2 via Transformers.js) and
+# stored with a `none` vectorizer. This mirrors a Weaviate Cloud cluster exactly:
+# the only difference between local and Cloud is WEAVIATE_URL + WEAVIATE_API_KEY.
+# Brought up with `scripts/weaviate-up.sh`. NOT for production.
+services:
+  weaviate:
+    image: cr.weaviate.io/semitechnologies/weaviate:1.28.4
+    ports:
+      - '8080:8080' # REST
+      - '50051:50051' # gRPC (used by weaviate-client v3)
+    restart: on-failure:0
+    environment:
+      QUERY_DEFAULTS_LIMIT: 25
+      AUTHENTICATION_ANONYMOUS_ACCESS_ENABLED: 'true'
+      PERSISTENCE_DATA_PATH: '/var/lib/weaviate'
+      ENABLE_MODULES: '' # no server-side vectorizer — client provides vectors
+      CLUSTER_HOSTNAME: 'node1'
+    volumes:
+      - weaviate_data:/var/lib/weaviate
+
+volumes:
+  weaviate_data:
