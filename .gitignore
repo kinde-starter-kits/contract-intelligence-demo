@@ -23,3 +23,27 @@ coverage/
 
 # ---------------------------------------------------------------------
 # Add specific rules here…
+
+# Next.js
+.next/
+next-env.d.ts
+
+# TypeScript incremental build info
+*.tsbuildinfo
+
+# Environment files (local overrides / secrets)
+.env
+.env*.local
+
+# Convex local artifacts
+.convex/
+convex/_generated/
+
+# Build log (git-ignored working notes)
+BUILD_LOG.md
+
+# Python venv artifacts (agent service, later phases)
+.venv/
+venv/
+__pycache__/
+*.pyc
