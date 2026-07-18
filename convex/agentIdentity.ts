@@ -1,6 +1,14 @@
-import {internalAction, internalQuery} from './_generated/server';
+import {action, internalAction, internalQuery} from './_generated/server';
 import {v} from 'convex/values';
 import {agentAuth} from './agentAuth';
+
+const verifiedIdentity = v.object({
+  accepted: v.boolean(),
+  subject: v.string(),
+  agentId: v.union(v.string(), v.null()),
+  orgCode: v.union(v.string(), v.null()),
+  scopes: v.array(v.string())
+});
 
 /**
  * Read the agent-auth component's effective config. Used during setup to prove
@@ -44,18 +52,43 @@ export const verifyCrewToken = internalAction({
     // revocation and tenant-policy gates are never silently skipped.
     expectedOrgCode: v.optional(v.string())
   },
-  returns: v.object({
-    accepted: v.boolean(),
-    subject: v.string(),
-    agentId: v.union(v.string(), v.null()),
-    orgCode: v.union(v.string(), v.null()),
-    scopes: v.array(v.string())
-  }),
+  returns: verifiedIdentity,
   handler: async (ctx, args) => {
     const verified = await agentAuth.verifyCaller(ctx, args.token, {
       expectedOrgCode: args.expectedOrgCode,
       // This deployment registers its agent, so require the caller to resolve
       // to a known agent (the component default) rather than allow-through.
+      requireRegisteredAgent: true
+    });
+    return {
+      accepted: true,
+      subject: verified.subject,
+      agentId: verified.agentId,
+      orgCode: verified.orgCode,
+      scopes: verified.scopes
+    };
+  }
+});
+
+/**
+ * PUBLIC verification seam over the component's `verifyCaller`. Used by the
+ * Next.js vector-similarity route (app/api/agent/similar), which runs where the
+ * ONNX embedding runtime lives and can't call an internal Convex function.
+ *
+ * Safe to expose: `verifyCaller` only VERIFIES identity (and audits) — it makes
+ * no authorization decision. The Convex httpActions (convex/http.ts) use the
+ * internal `verifyCrewToken` directly; this mirrors it for the one endpoint that
+ * must live in Next.js. Throws (rejects) on a missing/invalid/unregistered token.
+ */
+export const verifyAgentToken = action({
+  args: {
+    token: v.string(),
+    expectedOrgCode: v.optional(v.string())
+  },
+  returns: verifiedIdentity,
+  handler: async (ctx, args) => {
+    const verified = await agentAuth.verifyCaller(ctx, args.token, {
+      expectedOrgCode: args.expectedOrgCode,
       requireRegisteredAgent: true
     });
     return {
