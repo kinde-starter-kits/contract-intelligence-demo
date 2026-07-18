@@ -1,3 +1,5 @@
+import {LoginLink, RegisterLink} from '@kinde-oss/kinde-auth-nextjs/components';
+
 export default function Home() {
   return (
     <main className="container">
@@ -8,7 +10,11 @@ export default function Home() {
         intersection.
       </p>
       <p className="muted">
-        Scaffold ready. Feature work lands in later phases.
+        Sign in with your org account to see your resolved permissions.
+      </p>
+      <p>
+        <LoginLink>Sign in</LoginLink> · <RegisterLink>Sign up</RegisterLink> ·{' '}
+        <a href="/dashboard">Dashboard</a>
       </p>
     </main>
   );
