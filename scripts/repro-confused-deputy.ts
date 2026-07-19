@@ -25,7 +25,7 @@ import {fileURLToPath} from 'node:url';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const ORG = 'org_d8d0c41009eb1';
-const INTERN = 'kp_demo_intern'; // read-only human: Intern has ONLY contracts:read
+const INTERN = 'kp_0d4f620753b84b06b32a5738c1fc6f1c'; // read-only human: Intern has ONLY contracts:read
 
 // --- env from agents/.env (crew creds + endpoints) ---
 function loadAgentEnv(): Record<string, string> {

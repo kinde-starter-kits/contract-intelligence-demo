@@ -125,3 +125,20 @@ A successful result reports `accepted: true` with `agentId` set to the agent reg
 | App `.env.local` | `KINDE_CLIENT_ID`, `KINDE_CLIENT_SECRET`, `KINDE_ISSUER_URL`, `KINDE_SITE_URL`, `KINDE_POST_LOGIN_REDIRECT_URL`, `KINDE_POST_LOGOUT_REDIRECT_URL`, `NEXT_PUBLIC_CONVEX_URL` |
 
 `KINDE_DOMAIN` is the tenant host **without** protocol (e.g. `myapp.kinde.com`); `KINDE_ISSUER_URL` is the same tenant **with** `https://`.
+
+## 9. Management API M2M (resolve a human's org permissions server-side)
+
+Intersection mode resolves the acting human's permission ceiling **from Kinde** at review-start (it is NOT a hardcoded map). That needs a Management-API M2M application.
+
+Create it in Kinde:
+
+1. **Settings → APIs → Kinde Management API → connected apps** (or create a new **Machine to machine** application) and **authorize it for the Kinde Management API** (audience `https://<your-tenant>.kinde.com/api`).
+2. Grant it read scopes covering org users and their permissions — e.g. `read:organizations`, `read:organization_users`, `read:user_permissions`, `read:users`. (If the permissions endpoint returns a scope error, add the scope it names.)
+3. Set its credentials on the **Convex deployment**:
+
+   ```bash
+   npx convex env set KINDE_MGMT_CLIENT_ID <mgmt m2m client id>
+   npx convex env set KINDE_MGMT_CLIENT_SECRET <mgmt m2m client secret>
+   ```
+
+At review-start (intersection mode) the app calls `GET /api/v1/organizations/{org_code}/users/{user_id}/permissions` with a Management-API token, takes the returned permission `key`s (filtered to this app's set), and issues the acting human's delegation from them. Without these credentials, intersection review-start fails closed with `permission_resolution_failed` — the app never falls back to a hardcoded map.

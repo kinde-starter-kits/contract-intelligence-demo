@@ -51,10 +51,17 @@ beforeAll(async () => {
   }
 });
 
+// Each test user's permissions in the org, as the Kinde Management API would
+// return them. This is what review-start resolves to build the delegation.
+const USER_PERMISSIONS: Record<string, string[]> = {
+  [INTERN]: ['contracts:read'],
+  [ADMIN]: ['contracts:read', 'clauses:flag', 'clauses:approve']
+};
+
 function stubKinde() {
   vi.stubGlobal(
     'fetch',
-    vi.fn(async (input: RequestInfo | URL) => {
+    vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = String(input);
       if (url === CONFIG_URL) {
         return new Response(JSON.stringify({jwks_uri: JWKS_URL}), {
@@ -68,7 +75,25 @@ function stubKinde() {
           headers: {'Content-Type': 'application/json'}
         });
       }
-      throw new Error(`Unexpected fetch: ${url}`);
+      // Kinde Management API: token (client_credentials) + user org permissions.
+      if (url === `${ISSUER}/oauth2/token` && init?.method === 'POST') {
+        return new Response(
+          JSON.stringify({access_token: 'mgmt-token', expires_in: 3600}),
+          {status: 200, headers: {'Content-Type': 'application/json'}}
+        );
+      }
+      const permMatch = url.match(/\/users\/([^/]+)\/permissions$/);
+      if (permMatch) {
+        const userId = permMatch[1];
+        const permissions = (USER_PERMISSIONS[userId] ?? []).map((key) => ({
+          key
+        }));
+        return new Response(JSON.stringify({permissions}), {
+          status: 200,
+          headers: {'Content-Type': 'application/json'}
+        });
+      }
+      throw new Error(`Unexpected fetch: ${url} ${init?.method ?? ''}`);
     })
   );
 }
@@ -93,6 +118,9 @@ beforeEach(() => {
   vi.stubEnv('KINDE_DOMAIN', DOMAIN);
   vi.stubEnv('DELEGATION_SIGNING_SECRET', 'test-delegation-secret');
   vi.stubEnv('MODE', 'test');
+  // Management-API credentials so review-start resolves the human's ceiling.
+  vi.stubEnv('KINDE_MGMT_CLIENT_ID', 'mgmt-client');
+  vi.stubEnv('KINDE_MGMT_CLIENT_SECRET', 'mgmt-secret');
   stubKinde();
 });
 
@@ -190,19 +218,10 @@ describe('AUTHZ_MODE=intersection — the fix (human ∩ agent)', () => {
     const t = initConvexTest();
     const {contractId, clauses, token} = await setup(t);
 
+    // review-start resolves the Intern's ceiling from (stubbed) Kinde
+    // (contracts:read only) and issues the delegation — no manual seeding.
     const start = await startReview(t, token, INTERN, contractId);
     expect(start.body.mode).toBe('intersection');
-
-    // The Intern's ceiling: read only.
-    const agent = await t.query(internal.agents.getAgentByClientId, {
-      kindeClientId: CLIENT,
-      orgCode: ORG
-    });
-    await t.mutation(internal.agentDelegation.issueHumanDelegation, {
-      agentId: agent!.agentId,
-      actingSubject: INTERN,
-      permissions: ['contracts:read']
-    });
 
     const res = await approve(
       t,
@@ -228,18 +247,9 @@ describe('AUTHZ_MODE=intersection — the fix (human ∩ agent)', () => {
     const t = initConvexTest();
     const {contractId, clauses, token} = await setup(t);
 
+    // review-start resolves the Admin's ceiling from (stubbed) Kinde
+    // (read + flag + approve) and issues the delegation.
     const start = await startReview(t, token, ADMIN, contractId);
-
-    const agent = await t.query(internal.agents.getAgentByClientId, {
-      kindeClientId: CLIENT,
-      orgCode: ORG
-    });
-    // The Admin's ceiling: read + flag + approve.
-    await t.mutation(internal.agentDelegation.issueHumanDelegation, {
-      agentId: agent!.agentId,
-      actingSubject: ADMIN,
-      permissions: CREW_SCOPES
-    });
 
     const res = await approve(
       t,
