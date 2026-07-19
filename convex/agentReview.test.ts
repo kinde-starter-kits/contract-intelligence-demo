@@ -12,6 +12,19 @@ const acmeText = readFileSync(
 const ORG = 'org_acme';
 const HUMAN = 'kp_user_admin';
 
+// Canned decision the HTTP layer would have produced in broken mode. flag/approve
+// only run after authorization; these direct-mutation tests supply it. Real
+// enforcement (both modes) is exercised through the HTTP layer in
+// convex/authzIntersection.test.ts.
+const BROKEN_AUTHZ = {
+  mode: 'broken' as const,
+  allowed: true,
+  humanChecked: false,
+  reason: 'broken',
+  correlationId: null,
+  requiredScopes: []
+};
+
 async function setup(t: ReturnType<typeof initConvexTest>) {
   const {agentId} = await t.mutation(internal.agents.provisionAgent, {
     kindeClientId: 'm2m_crew',
@@ -81,7 +94,8 @@ describe('agent review endpoints (internal logic)', () => {
       reviewRunId,
       clauseId: clauses[4].clauseId, // "Limitation of Liability"
       riskLevel: 'high',
-      rationale: 'Liability cap.'
+      rationale: 'Liability cap.',
+      authz: BROKEN_AUTHZ
     });
     expect(flagged.status).toBe('flagged');
 
@@ -89,7 +103,8 @@ describe('agent review endpoints (internal logic)', () => {
       orgCode: ORG,
       actingSubject: HUMAN,
       reviewRunId,
-      clauseId: clauses[0].clauseId // preamble, low risk
+      clauseId: clauses[0].clauseId, // preamble, low risk
+      authz: BROKEN_AUTHZ
     });
     expect(approved.status).toBe('approved');
 
@@ -138,83 +153,6 @@ describe('agent review endpoints (internal logic)', () => {
     const run = await t.run(async (ctx) => ctx.db.get(reviewRunId));
     expect(run?.status).toBe('completed');
     expect(run?.finishedAt).toBeTypeOf('number');
-  });
-});
-
-// The confused deputy: in broken mode the acting human's permissions are never
-// consulted, so a read-only human's proxy can approve a clause the human could
-// never approve. This is the failure Phase 5 reproduces (Phase 6 fixes it).
-describe('AUTHZ_MODE=broken — the confused deputy', () => {
-  const INTERN = 'kp_demo_intern'; // read-only human (no clauses:approve)
-
-  test('a read-only INTERN subject can approve a risky clause (no human check)', async () => {
-    const t = initConvexTest();
-    const {agentId, contractId} = await setup(t);
-
-    const {reviewRunId} = await t.mutation(internal.agentReview.startReview, {
-      agentId,
-      orgCode: ORG,
-      actingSubject: INTERN,
-      contractId,
-      mode: 'broken'
-    });
-
-    const clauses = await t.query(internal.agentReview.listClausesForAgent, {
-      orgCode: ORG,
-      contractId
-    });
-    const risky = clauses[4]; // "Limitation of Liability"
-
-    // Flag it high, then APPROVE it — all on behalf of the read-only intern.
-    await t.mutation(internal.agentReview.flagClause, {
-      orgCode: ORG,
-      actingSubject: INTERN,
-      reviewRunId,
-      clauseId: risky.clauseId,
-      riskLevel: 'high',
-      rationale: 'Liability cap — high risk.'
-    });
-    const approved = await t.mutation(internal.agentReview.approveClause, {
-      orgCode: ORG,
-      actingSubject: INTERN,
-      reviewRunId,
-      clauseId: risky.clauseId
-    });
-
-    // The approval LANDED, credited to the intern, with NO human check.
-    expect(approved.status).toBe('approved');
-    expect(approved.authz.mode).toBe('broken');
-    expect(approved.authz.humanChecked).toBe(false);
-
-    const row = await t.run(async (ctx) => ctx.db.get(risky.clauseId));
-    expect(row?.status).toBe('approved');
-    expect(row?.decidedBy).toBe(INTERN);
-    expect(row?.riskLevel).toBe('high');
-  });
-
-  test('intersection mode is not implemented yet — it fails closed', async () => {
-    const t = initConvexTest();
-    const {agentId, contractId} = await setup(t);
-    const {reviewRunId} = await t.mutation(internal.agentReview.startReview, {
-      agentId,
-      orgCode: ORG,
-      actingSubject: INTERN,
-      contractId,
-      mode: 'intersection'
-    });
-    const clauses = await t.query(internal.agentReview.listClausesForAgent, {
-      orgCode: ORG,
-      contractId
-    });
-    // Not pre-built: enforcement in intersection mode refuses rather than pretend.
-    await expect(
-      t.mutation(internal.agentReview.approveClause, {
-        orgCode: ORG,
-        actingSubject: INTERN,
-        reviewRunId,
-        clauseId: clauses[0].clauseId
-      })
-    ).rejects.toThrow(/intersection_not_implemented/);
   });
 });
 

@@ -1,4 +1,6 @@
-import {ConvexError} from 'convex/values';
+import {GenericId} from 'convex/values';
+import {ActionCtx} from './_generated/server';
+import {agentAuth} from './agentAuth';
 
 /**
  * The app's authorization mode for agent actions.
@@ -7,16 +9,16 @@ import {ConvexError} from 'convex/values';
  *                  permissions are never resolved or checked. This is the
  *                  confused deputy: a read-only human's proxy can do things the
  *                  human never could. (Phase 5.)
- *   intersection — authorize on crew capabilities ∩ the acting human's
- *                  permissions, so the human's ceiling always applies. (Phase 6.)
+ *   intersection — authorize on the acting human's permissions ∩ the agent's,
+ *                  via the component's `authorize()`. The human's ceiling always
+ *                  applies. (Phase 6.)
  */
 export type AuthzMode = 'broken' | 'intersection';
 
 /**
  * The mode is decided by the SERVER (deployment env `AUTHZ_MODE`), never by the
  * calling agent — a client must not be able to pick how strictly it is checked.
- * Defaults to `broken` (the only mode implemented until phase 6). Flip it with
- * `npx convex env set AUTHZ_MODE broken|intersection`.
+ * Defaults to `broken`. Flip with `npx convex env set AUTHZ_MODE broken|intersection`.
  */
 export function resolveAuthzMode(): AuthzMode {
   return process.env.AUTHZ_MODE === 'intersection' ? 'intersection' : 'broken';
@@ -28,34 +30,58 @@ export interface AuthzDecision {
   /** Whether the acting human's permissions were consulted at all. */
   humanChecked: boolean;
   reason: string;
+  /** The component's audit correlation id (intersection mode). */
+  correlationId: string | null;
+  /** Scopes the action needs, when denied for scope (intersection mode). */
+  requiredScopes: string[];
 }
 
 /**
- * Authorize an agent decision (e.g. `clauses:flag`, `clauses:approve`) taken on
- * behalf of the acting human.
+ * Authorize an agent action (`clauses:flag`, `clauses:approve`) taken on behalf
+ * of the acting human, for a specific run instance.
  *
- * PHASE 5 — BROKEN ONLY. In broken mode the action is authorized on the agent's
- * verified identity alone (the token was already verified upstream); the acting
- * human's permissions are NEVER resolved or checked — that absence is the whole
- * bug. Intersection mode (crew capabilities ∩ the human's permissions) is
- * implemented in phase 6; until then it fails closed rather than pretend to
- * enforce.
+ * Runs at the HTTP/action layer because it needs the crew's verified token and
+ * (in intersection mode) may refresh the JWKS cache.
+ *
+ *   broken       — the action is authorized on the agent's verified token alone;
+ *                  the acting human's permissions are NEVER consulted.
+ *   intersection — the component's `authorize(token, {instanceId, action})`
+ *                  decides: human ∩ agent (∩ live token scopes via
+ *                  `enforceTokenScopes`). We use `authorize()` (which binds the
+ *                  verified caller to the instance) — never raw `authz.can`.
+ *                  A denial returns `allowed:false` with a machine-readable
+ *                  reason + correlationId; the component writes the audit row.
  */
-export function authorizeAgentDecision(
-  mode: AuthzMode,
-  action: string
-): AuthzDecision {
-  if (mode === 'broken') {
+export async function authorizeAgentAction(
+  ctx: ActionCtx,
+  token: string,
+  opts: {mode: AuthzMode; instanceId: string; action: string}
+): Promise<AuthzDecision> {
+  if (opts.mode === 'broken') {
     return {
-      mode,
+      mode: 'broken',
       allowed: true,
       humanChecked: false,
-      reason: `broken: authorized on the agent's identity alone; the acting human's authority for '${action}' was never checked`
+      reason: `broken: authorized on the agent's identity alone; the acting human's authority for '${opts.action}' was never checked`,
+      correlationId: null,
+      requiredScopes: []
     };
   }
-  throw new ConvexError({
-    code: 'intersection_not_implemented',
-    message:
-      'AUTHZ_MODE=intersection is implemented in phase 6; only broken mode is available.'
+
+  const {decision} = await agentAuth.authorize(ctx, token, {
+    instanceId: opts.instanceId as GenericId<'instances'>,
+    action: opts.action,
+    // Intersect the crew's LIVE token scopes in too, so a shrunk M2M scope set
+    // takes effect immediately and can't drift from the registered agent scopes.
+    enforceTokenScopes: true
   });
+
+  return {
+    mode: 'intersection',
+    allowed: decision.allowed,
+    humanChecked: true,
+    reason: decision.reason,
+    correlationId: decision.correlationId,
+    requiredScopes: decision.requiredScopes ?? []
+  };
 }
