@@ -17,6 +17,21 @@ import {
   type ClauseRecord
 } from '../lib/weaviate';
 
+/** Run a command, retrying transient failures (e.g. a flaky network to Convex). */
+function runWithRetry(cmd: string, args: string[], attempts = 4): string {
+  let lastErr: unknown;
+  for (let i = 0; i < attempts; i++) {
+    try {
+      return execFileSync(cmd, args, {encoding: 'utf-8'});
+    } catch (err) {
+      lastErr = err;
+      const wait = 1500 * (i + 1);
+      execFileSync('sleep', [String(wait / 1000)]);
+    }
+  }
+  throw lastErr;
+}
+
 async function main() {
   const [, , contractId, orgCode] = process.argv;
   if (!contractId || !orgCode) {
@@ -26,11 +41,12 @@ async function main() {
     process.exit(1);
   }
 
-  const raw = execFileSync(
-    'npx',
-    ['convex', 'run', 'ingest:getClauseRecords', JSON.stringify({contractId})],
-    {encoding: 'utf-8'}
-  );
+  const raw = runWithRetry('npx', [
+    'convex',
+    'run',
+    'ingest:getClauseRecords',
+    JSON.stringify({contractId})
+  ]);
   const records = JSON.parse(raw) as ClauseRecord[];
   if (records.length === 0) {
     console.error('No clauses found for that contract.');

@@ -1,7 +1,10 @@
 """CLI entrypoint for the contract review crew.
 
   python -m contract_crew.main --contract-id <id> --acting-subject <kinde user id>
-                               [--mode crew|deterministic] [--review-mode intersection|broken]
+                               [--mode crew|deterministic]
+
+The authorization mode (broken|intersection) is decided by the SERVER
+(deployment env AUTHZ_MODE), not by the crew — the run reports which was applied.
 """
 
 from __future__ import annotations
@@ -26,20 +29,10 @@ def main(argv: list[str] | None = None) -> int:
         default="crew",
         help="crew = LLM agents (needs an LLM key); deterministic = rule-based.",
     )
-    parser.add_argument(
-        "--review-mode",
-        choices=["intersection", "broken"],
-        default="intersection",
-        help="Recorded on the review run (no enforcement until the authz phases).",
-    )
     args = parser.parse_args(argv)
 
     runner = run_with_crew if args.mode == "crew" else run_deterministic
-    summary = runner(
-        args.contract_id,
-        args.acting_subject,
-        review_mode=args.review_mode,
-    )
+    summary = runner(args.contract_id, args.acting_subject)
     print(summary.describe())
     return 0
 

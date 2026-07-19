@@ -52,10 +52,10 @@ class AppClient:
 
     # --- Review lifecycle ---
 
-    def start_review(self, contract_id: str, mode: str = "intersection") -> dict:
-        return self._post_convex(
-            "/agent/review/start", {"contractId": contract_id, "mode": mode}
-        )
+    def start_review(self, contract_id: str) -> dict:
+        # The SERVER decides the authorization mode (AUTHZ_MODE); the crew does
+        # not send one. The response reports the effective mode.
+        return self._post_convex("/agent/review/start", {"contractId": contract_id})
 
     def complete_review(self, review_run_id: str) -> dict:
         return self._post_convex(

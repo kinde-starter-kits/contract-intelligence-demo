@@ -1,6 +1,7 @@
 import {httpRouter} from 'convex/server';
 import {httpAction, ActionCtx} from './_generated/server';
 import {internal} from './_generated/api';
+import {resolveAuthzMode} from './authz';
 
 /**
  * The crew's HTTP surface (base: `<deployment>.convex.site`).
@@ -92,7 +93,8 @@ async function authenticate(
   };
 }
 
-// POST /agent/review/start  { contractId, mode? } -> { reviewRunId, instanceId }
+// POST /agent/review/start  { contractId } -> { reviewRunId, instanceId, mode }
+//   `mode` is decided server-side by AUTHZ_MODE, not by the request.
 http.route({
   path: '/agent/review/start',
   method: 'POST',
@@ -102,12 +104,15 @@ http.route({
     const body = await request.json();
     if (!body?.contractId) return json({error: 'missing_contractId'}, 400);
     try {
+      // The SERVER decides the authorization mode (deployment env AUTHZ_MODE),
+      // never the calling agent — a client must not choose how strictly it is
+      // checked. Any `mode` in the request body is ignored.
       const result = await ctx.runMutation(internal.agentReview.startReview, {
         agentId: auth.agentId,
         orgCode: auth.orgCode,
         actingSubject: auth.actingSubject,
         contractId: body.contractId,
-        mode: body.mode === 'broken' ? 'broken' : 'intersection'
+        mode: resolveAuthzMode()
       });
       return json(result, 200);
     } catch (e) {
