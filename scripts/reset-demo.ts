@@ -19,7 +19,7 @@ import {readFileSync} from 'node:fs';
 import {join, dirname} from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {
-  connectWeaviate,
+  withWeaviate,
   clearOrgClauses,
   upsertClauses,
   type ClauseRecord
@@ -132,13 +132,8 @@ async function main() {
   );
 
   // 2. Clear the org's Weaviate clause tenant.
-  const w1 = await connectWeaviate();
-  try {
-    await clearOrgClauses(w1, ORG);
-    console.log('Cleared the org’s Weaviate clause tenant.');
-  } finally {
-    await w1.close();
-  }
+  await withWeaviate((c) => clearOrgClauses(c, ORG));
+  console.log('Cleared the org’s Weaviate clause tenant.');
 
   // 3. Ingest a fresh contract.
   const text = readFileSync(join(root, 'fixtures', 'acme-msa.txt'), 'utf-8');
@@ -168,13 +163,8 @@ async function main() {
     '[',
     ']'
   );
-  const w2 = await connectWeaviate();
-  try {
-    await upsertClauses(w2, ORG, records);
-    console.log(`Embedded ${records.length} clauses.`);
-  } finally {
-    await w2.close();
-  }
+  await withWeaviate((c) => upsertClauses(c, ORG, records));
+  console.log(`Embedded ${records.length} clauses.`);
 
   // 5. Flag the high-risk clause as the ADMIN (allowed) — no intern approvals.
   const token = await mintToken();
