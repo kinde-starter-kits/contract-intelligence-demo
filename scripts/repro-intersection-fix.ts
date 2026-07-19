@@ -18,9 +18,8 @@ import {fileURLToPath} from 'node:url';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const ORG = 'org_d8d0c41009eb1';
-const INTERN = 'kp_demo_intern'; // read-only: contracts:read
-const ADMIN = 'kp_demo_admin'; // contracts:read, clauses:flag, clauses:approve
-const INTERN_PERMS = ['contracts:read'];
+const INTERN = 'kp_0d4f620753b84b06b32a5738c1fc6f1c'; // read-only: contracts:read
+const ADMIN = 'kp_a7b6a3daad074ec4b1743754bec659aa'; // contracts:read, clauses:flag, clauses:approve
 const ADMIN_PERMS = ['contracts:read', 'clauses:flag', 'clauses:approve'];
 
 function loadAgentEnv(): Record<string, string> {
@@ -143,30 +142,11 @@ async function main() {
   run('npx', ['tsx', 'scripts/embed-contract.ts', contractId, ORG]);
   console.log(`Ingested + embedded contract ${contractId}.`);
 
-  // 3. Resolve the crew agent id, and issue each human's delegation (their
-  //    permission ceiling). In the app this comes from the human's Kinde session;
-  //    headless, we issue it directly with each user's permission set.
-  const {agentId} = extractJson<{agentId: string}>(
-    run('npx', [
-      'convex',
-      'run',
-      'agents:getAgentByClientId',
-      JSON.stringify({kindeClientId: env.CREW_M2M_CLIENT_ID, orgCode: ORG})
-    ])
-  );
-  for (const [subject, perms] of [
-    [INTERN, INTERN_PERMS],
-    [ADMIN, ADMIN_PERMS]
-  ] as const) {
-    run('npx', [
-      'convex',
-      'run',
-      'agentDelegation:issueHumanDelegation',
-      JSON.stringify({agentId, actingSubject: subject, permissions: perms})
-    ]);
-  }
+  // 3. No seeded delegation: review-start (intersection) resolves each human's
+  //    permission ceiling FROM KINDE (Management API) and issues the delegation.
+  //    Requires KINDE_MGMT_CLIENT_ID/SECRET on the deployment.
   console.log(
-    `Delegations issued — Intern: [${INTERN_PERMS}]  Admin: [${ADMIN_PERMS}]\n`
+    'Human ceilings will be resolved from Kinde at review-start (no seeding).\n'
   );
 
   const token = await mintToken();

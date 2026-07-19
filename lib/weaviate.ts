@@ -85,7 +85,11 @@ export async function connectWeaviate(): Promise<WeaviateClient> {
 
   if (!isLocal) {
     return weaviate.connectToWeaviateCloud(url, {
-      authCredentials: apiKey ? new ApiKey(apiKey) : undefined
+      authCredentials: apiKey ? new ApiKey(apiKey) : undefined,
+      // Skip the client's startup gRPC health-check probe — it can fail on some
+      // networks even though gRPC works. A connection-robustness flag only; the
+      // vectorizer, tenancy, insert and query code are unchanged.
+      skipInitChecks: true
     });
   }
   return weaviate.connectToLocal({
@@ -119,6 +123,24 @@ export async function ensureClauseCollection(
       {name: 'text', dataType: 'text'}
     ]
   });
+}
+
+/**
+ * Drop an org's clause tenant (all its embedded clauses). Used by the demo
+ * reset; re-embedding auto-creates the tenant again. Best-effort / idempotent.
+ */
+export async function clearOrgClauses(
+  client: WeaviateClient,
+  orgCode: string
+): Promise<void> {
+  if (!(await client.collections.exists(CLAUSE_COLLECTION))) return;
+  const collection = client.collections.get(CLAUSE_COLLECTION);
+  const existing = await collection.tenants
+    .getByName(orgCode)
+    .catch(() => null);
+  if (existing) {
+    await collection.tenants.remove(orgCode);
+  }
 }
 
 /** Ensure a tenant exists for the given orgCode (idempotent). */

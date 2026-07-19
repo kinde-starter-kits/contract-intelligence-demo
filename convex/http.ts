@@ -2,6 +2,15 @@ import {httpRouter} from 'convex/server';
 import {httpAction, ActionCtx} from './_generated/server';
 import {internal} from './_generated/api';
 import {resolveAuthzMode, authorizeAgentAction} from './authz';
+import {resolveOrgUserPermissions} from './kindeManagement';
+
+// This app's permission set — the ceiling passed into the delegation is filtered
+// to these (the intersection with agent.scopes limits it anyway).
+const APP_PERMISSIONS = new Set([
+  'contracts:read',
+  'clauses:flag',
+  'clauses:approve'
+]);
 
 /**
  * The crew's HTTP surface (base: `<deployment>.convex.site`).
@@ -105,16 +114,43 @@ http.route({
     if (!auth.ok) return auth.response;
     const body = await request.json();
     if (!body?.contractId) return json({error: 'missing_contractId'}, 400);
+    // The SERVER decides the authorization mode (deployment env AUTHZ_MODE),
+    // never the calling agent. Any `mode` in the request body is ignored.
+    const mode = resolveAuthzMode();
+
+    // Intersection: resolve the acting human's permissions FROM KINDE (their
+    // ceiling) and issue their delegation for this run — sourced from Kinde, not
+    // a hardcoded map. broken mode never consults the human, so it skips this.
+    if (mode === 'intersection') {
+      try {
+        const perms = await resolveOrgUserPermissions(
+          auth.orgCode,
+          auth.actingSubject
+        );
+        const ceiling = perms.filter((p) => APP_PERMISSIONS.has(p));
+        await ctx.runMutation(internal.agentDelegation.issueHumanDelegation, {
+          agentId: auth.agentId,
+          actingSubject: auth.actingSubject,
+          permissions: ceiling
+        });
+      } catch (e) {
+        return json(
+          {
+            error: 'permission_resolution_failed',
+            detail: e instanceof Error ? e.message : String(e)
+          },
+          502
+        );
+      }
+    }
+
     try {
-      // The SERVER decides the authorization mode (deployment env AUTHZ_MODE),
-      // never the calling agent — a client must not choose how strictly it is
-      // checked. Any `mode` in the request body is ignored.
       const result = await ctx.runMutation(internal.agentReview.startReview, {
         agentId: auth.agentId,
         orgCode: auth.orgCode,
         actingSubject: auth.actingSubject,
         contractId: body.contractId,
-        mode: resolveAuthzMode()
+        mode
       });
       return json(result, 200);
     } catch (e) {
