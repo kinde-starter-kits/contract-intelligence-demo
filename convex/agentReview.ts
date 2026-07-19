@@ -2,6 +2,7 @@ import {internalMutation, internalQuery} from './_generated/server';
 import {v, GenericId} from 'convex/values';
 import {Id} from './_generated/dataModel';
 import {agentAuth} from './agentAuth';
+import {authorizeAgentDecision} from './authz';
 
 /**
  * Internal host-app logic behind the crew's HTTP endpoints (convex/http.ts).
@@ -11,10 +12,11 @@ import {agentAuth} from './agentAuth';
  * `agentId` / `orgCode` and the acting human's `actingSubject`. Nothing here is
  * publicly callable.
  *
- * PHASE 4 SCOPE: happy path only. Every action is bound to a review run and the
- * acting subject; `mode` is recorded but NOT enforced. The authorization
- * decision (crew scopes ∩ the human's delegated permissions) arrives in the
- * authz phases and will key off exactly this `instanceId` + `actingSubject`.
+ * AUTHORIZATION: every flag/approve runs through `authorizeAgentDecision(run.mode,
+ * action)`. The run's `mode` is the SERVER-decided `AUTHZ_MODE` recorded at
+ * start. In broken mode (phase 5) the acting human's permissions are never
+ * consulted — the confused deputy. Intersection (phase 6) applies the human's
+ * ceiling.
  */
 
 const clauseRiskLevel = v.union(
@@ -22,6 +24,13 @@ const clauseRiskLevel = v.union(
   v.literal('medium'),
   v.literal('high')
 );
+
+const authzDecision = v.object({
+  mode: v.union(v.literal('broken'), v.literal('intersection')),
+  allowed: v.boolean(),
+  humanChecked: v.boolean(),
+  reason: v.string()
+});
 
 /** Open a review run: start a component instance and record the run. */
 export const startReview = internalMutation({
@@ -34,7 +43,8 @@ export const startReview = internalMutation({
   },
   returns: v.object({
     reviewRunId: v.id('reviewRuns'),
-    instanceId: v.string()
+    instanceId: v.string(),
+    mode: v.union(v.literal('broken'), v.literal('intersection'))
   }),
   handler: async (ctx, args) => {
     const contract = await ctx.db.get(args.contractId);
@@ -67,7 +77,7 @@ export const startReview = internalMutation({
       startedAt: now
     });
 
-    return {reviewRunId, instanceId};
+    return {reviewRunId, instanceId, mode: args.mode};
   }
 });
 
@@ -130,10 +140,14 @@ export const flagClause = internalMutation({
   returns: v.object({
     clauseId: v.id('clauses'),
     riskLevel: clauseRiskLevel,
-    status: v.literal('flagged')
+    status: v.literal('flagged'),
+    authz: authzDecision
   }),
   handler: async (ctx, args) => {
     const run = await validateRun(ctx, args.reviewRunId, args.orgCode);
+    // Authorize the flag. In broken mode this does NOT consult the acting human.
+    const authz = authorizeAgentDecision(run.mode, 'clauses:flag');
+
     const clause = await ctx.db.get(args.clauseId);
     if (!clause) throw new Error('Clause not found.');
     if (clause.orgCode !== args.orgCode) {
@@ -150,7 +164,8 @@ export const flagClause = internalMutation({
     return {
       clauseId: args.clauseId,
       riskLevel: args.riskLevel,
-      status: 'flagged' as const
+      status: 'flagged' as const,
+      authz
     };
   }
 });
@@ -165,10 +180,16 @@ export const approveClause = internalMutation({
   },
   returns: v.object({
     clauseId: v.id('clauses'),
-    status: v.literal('approved')
+    status: v.literal('approved'),
+    authz: authzDecision
   }),
   handler: async (ctx, args) => {
     const run = await validateRun(ctx, args.reviewRunId, args.orgCode);
+    // Authorize the approval. In broken mode this does NOT consult the acting
+    // human — so a read-only human's proxy can approve a clause the human never
+    // could. That is the confused deputy this phase reproduces.
+    const authz = authorizeAgentDecision(run.mode, 'clauses:approve');
+
     const clause = await ctx.db.get(args.clauseId);
     if (!clause) throw new Error('Clause not found.');
     if (clause.orgCode !== args.orgCode) {
@@ -181,7 +202,7 @@ export const approveClause = internalMutation({
       decisionCorrelationId: `${run.instanceId}:approve:${args.clauseId}`,
       decidedAt: Date.now()
     });
-    return {clauseId: args.clauseId, status: 'approved' as const};
+    return {clauseId: args.clauseId, status: 'approved' as const, authz};
   }
 });
 
@@ -210,6 +231,7 @@ async function validateRun(
   const run = (await ctx.db.get(reviewRunId)) as {
     orgCode: string;
     instanceId: string;
+    mode: 'broken' | 'intersection';
   } | null;
   if (!run) throw new Error('Review run not found.');
   if (run.orgCode !== orgCode) {

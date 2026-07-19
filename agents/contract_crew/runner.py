@@ -86,14 +86,13 @@ def run_deterministic(
     contract_id: str,
     acting_subject: str,
     *,
-    review_mode: str = "intersection",
     config: Config | None = None,
     client: AppClient | None = None,
 ) -> ReviewSummary:
     config = config or load_config()
     client = client or _make_client(config, acting_subject)
 
-    started = client.start_review(contract_id, mode=review_mode)
+    started = client.start_review(contract_id)
     review_run_id = started["reviewRunId"]
     ctx = RunContext(review_run_id=review_run_id)
 
@@ -122,7 +121,7 @@ def run_deterministic(
         total_clauses=len(clauses),
         flagged=ctx.flagged,
         approved=ctx.approved,
-        mode=review_mode,
+        mode=started.get("mode", "broken"),
     )
 
 
@@ -130,7 +129,6 @@ def run_with_crew(
     contract_id: str,
     acting_subject: str,
     *,
-    review_mode: str = "intersection",
     config: Config | None = None,
 ) -> ReviewSummary:
     from .crew import build_crew  # imported lazily so no-LLM runs don't need it
@@ -138,7 +136,7 @@ def run_with_crew(
     config = config or load_config()
     client = _make_client(config, acting_subject)
 
-    started = client.start_review(contract_id, mode=review_mode)
+    started = client.start_review(contract_id)
     ctx = RunContext(review_run_id=started["reviewRunId"])
 
     crew = build_crew(client, ctx, contract_id, config.llm_model)
@@ -152,5 +150,5 @@ def run_with_crew(
         total_clauses=len(clauses),
         flagged=ctx.flagged,
         approved=ctx.approved,
-        mode=review_mode,
+        mode=started.get("mode", "broken"),
     )
