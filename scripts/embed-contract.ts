@@ -11,11 +11,7 @@
  * (admin CLI) and stores their vectors in the org's Weaviate tenant.
  */
 import {execFileSync} from 'node:child_process';
-import {
-  connectWeaviate,
-  upsertClauses,
-  type ClauseRecord
-} from '../lib/weaviate';
+import {withWeaviate, upsertClauses, type ClauseRecord} from '../lib/weaviate';
 
 /** Run a command, retrying transient failures (e.g. a flaky network to Convex). */
 function runWithRetry(cmd: string, args: string[], attempts = 4): string {
@@ -53,15 +49,10 @@ async function main() {
     process.exit(1);
   }
 
-  const client = await connectWeaviate();
-  try {
-    const n = await upsertClauses(client, orgCode, records);
-    console.log(
-      `Embedded ${n} clauses for contract ${contractId} into Weaviate tenant ${orgCode}.`
-    );
-  } finally {
-    await client.close();
-  }
+  const n = await withWeaviate((c) => upsertClauses(c, orgCode, records));
+  console.log(
+    `Embedded ${n} clauses for contract ${contractId} into Weaviate tenant ${orgCode}.`
+  );
 }
 
 main().catch((err) => {

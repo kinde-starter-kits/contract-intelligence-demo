@@ -11,6 +11,7 @@
     "start": "next start",
     "test": "vitest run",
     "test:watch": "vitest",
+    "e2e": "tsx scripts/e2e-narrative.ts",
     "lint": "eslint .",
     "format": "prettier --write .",
     "prepare": "husky"

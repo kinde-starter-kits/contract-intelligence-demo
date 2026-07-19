@@ -100,6 +100,31 @@ export async function connectWeaviate(): Promise<WeaviateClient> {
 }
 
 /**
+ * Connect, run an operation, and close — retrying transient failures (e.g. a
+ * flaky DNS lookup to Weaviate Cloud). Scripts use this so a network blip
+ * doesn't fail a whole demo pass.
+ */
+export async function withWeaviate<T>(
+  fn: (client: WeaviateClient) => Promise<T>,
+  attempts = 5
+): Promise<T> {
+  let lastErr: unknown;
+  for (let i = 0; i < attempts; i++) {
+    let client: WeaviateClient | null = null;
+    try {
+      client = await connectWeaviate();
+      return await fn(client);
+    } catch (err) {
+      lastErr = err;
+      await new Promise((r) => setTimeout(r, 1500 * (i + 1)));
+    } finally {
+      if (client) await client.close().catch(() => {});
+    }
+  }
+  throw lastErr;
+}
+
+/**
  * Create the multi-tenant `Clause` collection if it does not exist. Uses a
  * `none` (self-provided) vectorizer — we supply the vectors ourselves, so no
  * server-side vectorizer module is required (works on local + Cloud alike).
