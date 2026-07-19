@@ -2,7 +2,6 @@ import {internalMutation, internalQuery} from './_generated/server';
 import {v, GenericId} from 'convex/values';
 import {Id} from './_generated/dataModel';
 import {agentAuth} from './agentAuth';
-import {authorizeAgentDecision} from './authz';
 
 /**
  * Internal host-app logic behind the crew's HTTP endpoints (convex/http.ts).
@@ -12,11 +11,11 @@ import {authorizeAgentDecision} from './authz';
  * `agentId` / `orgCode` and the acting human's `actingSubject`. Nothing here is
  * publicly callable.
  *
- * AUTHORIZATION: every flag/approve runs through `authorizeAgentDecision(run.mode,
- * action)`. The run's `mode` is the SERVER-decided `AUTHZ_MODE` recorded at
- * start. In broken mode (phase 5) the acting human's permissions are never
- * consulted — the confused deputy. Intersection (phase 6) applies the human's
- * ceiling.
+ * AUTHORIZATION happens at the HTTP/action layer (authorizeAgentAction, which
+ * needs the crew token) BEFORE these run: broken mode allows on the agent's
+ * identity alone; intersection mode calls the component's `authorize()` for
+ * human ∩ agent and only reaches flag/approve when allowed. These mutations
+ * record the decision for provenance.
  */
 
 const clauseRiskLevel = v.union(
@@ -25,11 +24,16 @@ const clauseRiskLevel = v.union(
   v.literal('high')
 );
 
+// The authorization decision computed at the HTTP/action layer
+// (authorizeAgentAction). flag/approve only run after `allowed === true`; they
+// record the decision for provenance.
 const authzDecision = v.object({
   mode: v.union(v.literal('broken'), v.literal('intersection')),
   allowed: v.boolean(),
   humanChecked: v.boolean(),
-  reason: v.string()
+  reason: v.string(),
+  correlationId: v.union(v.string(), v.null()),
+  requiredScopes: v.array(v.string())
 });
 
 /** Open a review run: start a component instance and record the run. */
@@ -127,6 +131,23 @@ export const listClausesForAgent = internalQuery({
   }
 });
 
+/** Fetch a review run's instance id + mode for the HTTP authorization layer. */
+export const getReviewRun = internalQuery({
+  args: {reviewRunId: v.id('reviewRuns'), orgCode: v.string()},
+  returns: v.union(
+    v.object({
+      instanceId: v.string(),
+      mode: v.union(v.literal('broken'), v.literal('intersection'))
+    }),
+    v.null()
+  ),
+  handler: async (ctx, args) => {
+    const run = await ctx.db.get(args.reviewRunId);
+    if (!run || run.orgCode !== args.orgCode) return null;
+    return {instanceId: run.instanceId, mode: run.mode};
+  }
+});
+
 /** Flag a clause with a risk level + rationale, credited to the acting human. */
 export const flagClause = internalMutation({
   args: {
@@ -135,7 +156,10 @@ export const flagClause = internalMutation({
     reviewRunId: v.id('reviewRuns'),
     clauseId: v.id('clauses'),
     riskLevel: clauseRiskLevel,
-    rationale: v.string()
+    rationale: v.string(),
+    // The decision from authorizeAgentAction (HTTP layer). Only reached when
+    // allowed; recorded for provenance.
+    authz: authzDecision
   },
   returns: v.object({
     clauseId: v.id('clauses'),
@@ -145,8 +169,6 @@ export const flagClause = internalMutation({
   }),
   handler: async (ctx, args) => {
     const run = await validateRun(ctx, args.reviewRunId, args.orgCode);
-    // Authorize the flag. In broken mode this does NOT consult the acting human.
-    const authz = authorizeAgentDecision(run.mode, 'clauses:flag');
 
     const clause = await ctx.db.get(args.clauseId);
     if (!clause) throw new Error('Clause not found.');
@@ -158,14 +180,15 @@ export const flagClause = internalMutation({
       riskLevel: args.riskLevel,
       status: 'flagged',
       decidedBy: args.actingSubject,
-      decisionCorrelationId: `${run.instanceId}:flag:${args.clauseId}`,
+      decisionCorrelationId:
+        args.authz.correlationId ?? `${run.instanceId}:flag:${args.clauseId}`,
       decidedAt: Date.now()
     });
     return {
       clauseId: args.clauseId,
       riskLevel: args.riskLevel,
       status: 'flagged' as const,
-      authz
+      authz: args.authz
     };
   }
 });
@@ -176,7 +199,8 @@ export const approveClause = internalMutation({
     orgCode: v.string(),
     actingSubject: v.string(),
     reviewRunId: v.id('reviewRuns'),
-    clauseId: v.id('clauses')
+    clauseId: v.id('clauses'),
+    authz: authzDecision
   },
   returns: v.object({
     clauseId: v.id('clauses'),
@@ -185,10 +209,6 @@ export const approveClause = internalMutation({
   }),
   handler: async (ctx, args) => {
     const run = await validateRun(ctx, args.reviewRunId, args.orgCode);
-    // Authorize the approval. In broken mode this does NOT consult the acting
-    // human — so a read-only human's proxy can approve a clause the human never
-    // could. That is the confused deputy this phase reproduces.
-    const authz = authorizeAgentDecision(run.mode, 'clauses:approve');
 
     const clause = await ctx.db.get(args.clauseId);
     if (!clause) throw new Error('Clause not found.');
@@ -199,10 +219,16 @@ export const approveClause = internalMutation({
     await ctx.db.patch(args.clauseId, {
       status: 'approved',
       decidedBy: args.actingSubject,
-      decisionCorrelationId: `${run.instanceId}:approve:${args.clauseId}`,
+      decisionCorrelationId:
+        args.authz.correlationId ??
+        `${run.instanceId}:approve:${args.clauseId}`,
       decidedAt: Date.now()
     });
-    return {clauseId: args.clauseId, status: 'approved' as const, authz};
+    return {
+      clauseId: args.clauseId,
+      status: 'approved' as const,
+      authz: args.authz
+    };
   }
 });
 

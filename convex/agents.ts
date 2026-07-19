@@ -1,5 +1,5 @@
 import {internalMutation, internalQuery} from './_generated/server';
-import {v} from 'convex/values';
+import {v, GenericId} from 'convex/values';
 import {agentAuth} from './agentAuth';
 
 /**
@@ -81,12 +81,19 @@ export const provisionAgent = internalMutation({
   handler: async (ctx, args) => {
     const orgCode = args.orgCode ?? null;
 
-    // Guard against double-registration.
+    // Guard against double-registration. If the agent already exists, keep it
+    // idempotent but SYNC its scopes/allowedTools to the requested policy (so the
+    // registered agent's action namespace matches what `authorize()` checks).
     const existing = await agentAuth.listAgents(ctx, {});
     const already = existing.find(
       (a) => a.kindeClientId === args.kindeClientId && a.orgCode === orgCode
     );
     if (already) {
+      await agentAuth.setAgentPolicy(ctx, {
+        agentId: already._id as GenericId<'agents'>,
+        scopes: args.scopes,
+        allowedTools: args.allowedTools
+      });
       return {agentId: already._id, created: false};
     }
 

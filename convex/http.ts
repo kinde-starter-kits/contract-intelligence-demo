@@ -1,7 +1,7 @@
 import {httpRouter} from 'convex/server';
 import {httpAction, ActionCtx} from './_generated/server';
 import {internal} from './_generated/api';
-import {resolveAuthzMode} from './authz';
+import {resolveAuthzMode, authorizeAgentAction} from './authz';
 
 /**
  * The crew's HTTP surface (base: `<deployment>.convex.site`).
@@ -46,6 +46,7 @@ async function authenticate(
 ): Promise<
   | {
       ok: true;
+      token: string;
       agentId: string;
       orgCode: string;
       subject: string;
@@ -86,6 +87,7 @@ async function authenticate(
   }
   return {
     ok: true,
+    token,
     agentId: verified.agentId,
     orgCode: verified.orgCode,
     subject: verified.subject,
@@ -154,13 +156,29 @@ http.route({
       return json({error: 'missing_flag_fields'}, 400);
     }
     try {
+      const run = await ctx.runQuery(internal.agentReview.getReviewRun, {
+        reviewRunId: body.reviewRunId,
+        orgCode: auth.orgCode
+      });
+      if (!run) return json({error: 'review_run_not_found'}, 404);
+
+      const decision = await authorizeAgentAction(ctx, auth.token, {
+        mode: run.mode,
+        instanceId: run.instanceId,
+        action: 'clauses:flag'
+      });
+      if (!decision.allowed) {
+        return json({error: 'authorization_denied', ...decision}, 403);
+      }
+
       const result = await ctx.runMutation(internal.agentReview.flagClause, {
         orgCode: auth.orgCode,
         actingSubject: auth.actingSubject,
         reviewRunId: body.reviewRunId,
         clauseId: body.clauseId,
         riskLevel: body.riskLevel,
-        rationale: body.rationale ?? ''
+        rationale: body.rationale ?? '',
+        authz: decision
       });
       return json(result, 200);
     } catch (e) {
@@ -181,11 +199,29 @@ http.route({
       return json({error: 'missing_approve_fields'}, 400);
     }
     try {
+      const run = await ctx.runQuery(internal.agentReview.getReviewRun, {
+        reviewRunId: body.reviewRunId,
+        orgCode: auth.orgCode
+      });
+      if (!run) return json({error: 'review_run_not_found'}, 404);
+
+      const decision = await authorizeAgentAction(ctx, auth.token, {
+        mode: run.mode,
+        instanceId: run.instanceId,
+        action: 'clauses:approve'
+      });
+      if (!decision.allowed) {
+        // Human ∩ agent denied it (e.g. a read-only Intern). Machine-readable
+        // reason + correlationId; the clause is NOT flipped.
+        return json({error: 'authorization_denied', ...decision}, 403);
+      }
+
       const result = await ctx.runMutation(internal.agentReview.approveClause, {
         orgCode: auth.orgCode,
         actingSubject: auth.actingSubject,
         reviewRunId: body.reviewRunId,
-        clauseId: body.clauseId
+        clauseId: body.clauseId,
+        authz: decision
       });
       return json(result, 200);
     } catch (e) {
