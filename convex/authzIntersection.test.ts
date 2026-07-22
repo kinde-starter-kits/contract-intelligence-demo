@@ -11,8 +11,10 @@ import {
 import {readFileSync} from 'node:fs';
 import {join} from 'node:path';
 import {SignJWT, exportJWK, generateKeyPair} from 'jose';
-import {internal} from './_generated/api';
+import {api, internal} from './_generated/api';
+import type {Id} from './_generated/dataModel';
 import {initConvexTest} from './setup.test';
+import {runDeterministicReview, type CrewPost} from '../lib/agent-run';
 
 /**
  * End-to-end authorization tests through the crew's HTTP surface, in BOTH modes.
@@ -266,5 +268,169 @@ describe('AUTHZ_MODE=intersection — the fix (human ∩ agent)', () => {
     const row = await t.run(async (ctx) => ctx.db.get(clauses[4].clauseId));
     expect(row?.status).toBe('approved');
     expect(row?.decidedBy).toBe(ADMIN);
+  });
+});
+
+describe('live run events — persisted, ordered, subscribable', () => {
+  test('an allowed run persists run_started → signoff_allowed in order', async () => {
+    vi.stubEnv('AUTHZ_MODE', 'intersection');
+    const t = initConvexTest();
+    const {contractId, clauses, token} = await setup(t);
+
+    const start = await startReview(t, token, ADMIN, contractId);
+    const res = await approve(
+      t,
+      token,
+      ADMIN,
+      start.body.reviewRunId,
+      clauses[4].clauseId
+    );
+    expect(res.status).toBe(200);
+
+    const events = await t.query(api.runEvents.listRunEvents, {
+      reviewRunId: start.body.reviewRunId
+    });
+    // Sequence numbers are dense and monotonically increasing (order preserved).
+    expect(events.map((e) => e.seq)).toEqual(events.map((_, i) => i));
+    const types = events.map((e) => e.type);
+    expect(types[0]).toBe('run_started');
+    expect(types).toContain('signoff_allowed');
+    expect(types.indexOf('run_started')).toBeLessThan(
+      types.indexOf('signoff_allowed')
+    );
+    const allowed = events.find((e) => e.type === 'signoff_allowed');
+    expect(allowed?.detail?.clauseId).toBe(clauses[4].clauseId);
+  });
+
+  test('a denied run persists a signoff_denied event carrying the reason', async () => {
+    vi.stubEnv('AUTHZ_MODE', 'intersection');
+    const t = initConvexTest();
+    const {contractId, clauses, token} = await setup(t);
+
+    const start = await startReview(t, token, INTERN, contractId);
+    const res = await approve(
+      t,
+      token,
+      INTERN,
+      start.body.reviewRunId,
+      clauses[4].clauseId
+    );
+    expect(res.status).toBe(403);
+
+    const events = await t.query(api.runEvents.listRunEvents, {
+      reviewRunId: start.body.reviewRunId
+    });
+    const denied = events.find((e) => e.type === 'signoff_denied');
+    expect(denied).toBeTruthy();
+    expect(denied?.detail?.status).toBe('denied');
+    expect(denied?.detail?.reason).toBe('insufficient_scope');
+    expect(denied?.detail?.correlationId).toBeTruthy();
+    // The denied clause was NOT recorded as allowed.
+    expect(events.some((e) => e.type === 'signoff_allowed')).toBe(false);
+  });
+});
+
+/**
+ * End-to-end: the SAME server-side driver the /api/run route uses
+ * (runDeterministicReview) drives a full multi-clause run over the real crew
+ * HTTP endpoints, and the whole event stream is persisted in order — in BOTH
+ * modes. This is what the "Run review" button produces.
+ */
+describe('full deterministic run streams events end-to-end', () => {
+  function driverPost(
+    t: ReturnType<typeof initConvexTest>,
+    token: string,
+    subject: string
+  ): CrewPost {
+    return async (path, payload) => {
+      const res = await t.fetch(path, {
+        method: 'POST',
+        headers: headers(token, subject),
+        body: JSON.stringify(payload)
+      });
+      const body = await res.json().catch(() => ({}));
+      return {status: res.status, body};
+    };
+  }
+
+  async function streamOf(
+    t: ReturnType<typeof initConvexTest>,
+    reviewRunId: string
+  ) {
+    return t.query(api.runEvents.listRunEvents, {
+      reviewRunId: reviewRunId as Id<'reviewRuns'>
+    });
+  }
+
+  function assertCommonShape(events: Awaited<ReturnType<typeof streamOf>>) {
+    // Dense, monotonic seq → ordered and complete.
+    expect(events.map((e) => e.seq)).toEqual(events.map((_, i) => i));
+    const types = events.map((e) => e.type);
+    expect(types[0]).toBe('run_started');
+    expect(types[types.length - 1]).toBe('run_complete');
+    expect(types).toContain('extractor_started');
+    expect(types).toContain('clause_extracted');
+    expect(types).toContain('clause_assessed');
+  }
+
+  test('broken mode: an Intern run goes through (confused deputy) and streams signoff_allowed', async () => {
+    vi.stubEnv('AUTHZ_MODE', 'broken');
+    const t = initConvexTest();
+    const {contractId, token} = await setup(t);
+
+    const summary = await runDeterministicReview(
+      driverPost(t, token, INTERN),
+      contractId
+    );
+    expect(summary.mode).toBe('broken');
+    expect(summary.totalClauses).toBeGreaterThan(0);
+    expect(summary.approved).toBeGreaterThan(0);
+    expect(summary.denied).toBe(0);
+
+    const events = await streamOf(t, summary.reviewRunId);
+    assertCommonShape(events);
+    const types = events.map((e) => e.type);
+    expect(types).toContain('signoff_allowed');
+    expect(types).not.toContain('signoff_denied');
+  });
+
+  test('intersection mode: an Intern run is denied and streams signoff_denied', async () => {
+    vi.stubEnv('AUTHZ_MODE', 'intersection');
+    const t = initConvexTest();
+    const {contractId, token} = await setup(t);
+
+    const summary = await runDeterministicReview(
+      driverPost(t, token, INTERN),
+      contractId
+    );
+    expect(summary.mode).toBe('intersection');
+    expect(summary.approved).toBe(0);
+    expect(summary.denied).toBeGreaterThan(0);
+
+    const events = await streamOf(t, summary.reviewRunId);
+    assertCommonShape(events);
+    const types = events.map((e) => e.type);
+    expect(types).toContain('signoff_denied');
+    expect(types).not.toContain('signoff_allowed');
+  });
+
+  test('intersection mode: an Admin run is allowed and streams signoff_allowed', async () => {
+    vi.stubEnv('AUTHZ_MODE', 'intersection');
+    const t = initConvexTest();
+    const {contractId, token} = await setup(t);
+
+    const summary = await runDeterministicReview(
+      driverPost(t, token, ADMIN),
+      contractId
+    );
+    expect(summary.mode).toBe('intersection');
+    expect(summary.approved).toBeGreaterThan(0);
+    expect(summary.denied).toBe(0);
+
+    const events = await streamOf(t, summary.reviewRunId);
+    assertCommonShape(events);
+    const types = events.map((e) => e.type);
+    expect(types).toContain('signoff_allowed');
+    expect(types).not.toContain('signoff_denied');
   });
 });

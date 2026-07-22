@@ -4,9 +4,10 @@
  * sourced from Kinde (not a hardcoded map) when issuing their delegation at
  * review-start.
  *
- * Needs a Kinde Management-API M2M application; its credentials are read from the
- * Convex deployment env:
- *   KINDE_DOMAIN            e.g. devrelstudio.kinde.com  (already set)
+ * Shared by Convex (review-start, deployment env) and the Next.js app (guest
+ * mode, .env.local) — both via `process.env`. Needs a Kinde Management-API M2M
+ * application:
+ *   KINDE_DOMAIN            e.g. devrelstudio.kinde.com
  *   KINDE_MGMT_CLIENT_ID    the Management-API M2M client id
  *   KINDE_MGMT_CLIENT_SECRET its secret
  *

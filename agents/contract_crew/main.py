@@ -29,10 +29,28 @@ def main(argv: list[str] | None = None) -> int:
         default="crew",
         help="crew = LLM agents (needs an LLM key); deterministic = rule-based.",
     )
+    parser.add_argument(
+        "--llm-api-key",
+        default=None,
+        help="BYOK: provider key for this run only (not persisted/logged). "
+        "Falls back to the provider key in the environment when omitted.",
+    )
+    parser.add_argument(
+        "--llm-model",
+        default=None,
+        help="Override the LiteLLM model id for this run.",
+    )
     args = parser.parse_args(argv)
 
-    runner = run_with_crew if args.mode == "crew" else run_deterministic
-    summary = runner(args.contract_id, args.acting_subject)
+    if args.mode == "crew":
+        summary = run_with_crew(
+            args.contract_id,
+            args.acting_subject,
+            llm_api_key=args.llm_api_key,
+            llm_model=args.llm_model,
+        )
+    else:
+        summary = run_deterministic(args.contract_id, args.acting_subject)
     print(summary.describe())
     return 0
 

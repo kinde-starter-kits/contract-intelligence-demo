@@ -1,15 +1,17 @@
 'use server';
 
-import {getKindeServerSession} from '@kinde-oss/kinde-auth-nextjs/server';
+import {getActingIdentity} from '@/lib/acting-identity';
+import {errorText} from '@/lib/error-text';
+import {mintCrewToken} from '@/lib/agent-run';
 
 /**
  * The dashboard's approve action, wired through the REAL crew endpoint. The
- * signed-in human clicks "approve"; the server (holding the crew M2M secret)
- * directs the crew to approve the clause ON BEHALF OF that human
- * (X-Acting-Subject = the human's Kinde id). In intersection mode review-start
- * resolves the human's ceiling from Kinde and issues their delegation, so the
- * component's authorize() decides human ∩ agent — a read-only Intern who forces
- * the button still gets the backend 403 with its reason surfaced here.
+ * acting human (a guest test user OR a signed-in human) clicks "approve"; the
+ * server (holding the crew M2M secret) directs the crew to approve the clause ON
+ * BEHALF OF that human (X-Acting-Subject = their real Kinde id). In intersection
+ * mode review-start resolves the human's ceiling from Kinde and issues their
+ * delegation, so the component's authorize() decides human ∩ agent — a read-only
+ * Intern who forces the button still gets the backend 403 surfaced here.
  */
 
 export interface ApproveResult {
@@ -23,29 +25,14 @@ export interface ApproveResult {
   error?: string;
 }
 
-async function mintCrewToken(): Promise<string> {
-  const issuer = process.env.KINDE_ISSUER_URL;
-  const resp = await fetch(`${issuer}/oauth2/token`, {
-    method: 'POST',
-    headers: {'content-type': 'application/x-www-form-urlencoded'},
-    body: new URLSearchParams({
-      grant_type: 'client_credentials',
-      client_id: process.env.CREW_M2M_CLIENT_ID ?? '',
-      client_secret: process.env.CREW_M2M_CLIENT_SECRET ?? '',
-      audience: process.env.KINDE_AUDIENCE ?? ''
-    })
-  });
-  if (!resp.ok) throw new Error(`crew token mint failed: ${resp.status}`);
-  return (await resp.json()).access_token as string;
-}
-
 export async function approveClauseAsHuman(
   contractId: string,
   clauseId: string
 ): Promise<ApproveResult> {
-  const {getUser} = getKindeServerSession();
-  const user = await getUser();
-  if (!user?.id) return {ok: false, status: 401, error: 'not_authenticated'};
+  const identity = await getActingIdentity();
+  if (!identity.subject) {
+    return {ok: false, status: 401, error: 'no_acting_identity'};
+  }
 
   const site = process.env.NEXT_PUBLIC_CONVEX_SITE_URL;
   if (!site) return {ok: false, status: 500, error: 'convex_site_unconfigured'};
@@ -63,7 +50,7 @@ export async function approveClauseAsHuman(
 
   const headers = {
     authorization: `Bearer ${token}`,
-    'x-acting-subject': user.id,
+    'x-acting-subject': identity.subject,
     'content-type': 'application/json'
   };
 
@@ -77,8 +64,8 @@ export async function approveClauseAsHuman(
     return {
       ok: false,
       status: startResp.status,
-      error: start.error ?? 'review_start_failed',
-      reason: start.detail ?? start.error
+      error: errorText(start.error, 'review_start_failed'),
+      reason: errorText(start.detail ?? start.error, '') || null
     };
   }
 
@@ -100,9 +87,9 @@ export async function approveClauseAsHuman(
     ok: false,
     status: approveResp.status,
     mode: approve.mode,
-    reason: approve.reason,
+    reason: approve.reason == null ? null : errorText(approve.reason, ''),
     correlationId: approve.correlationId,
     requiredScopes: approve.requiredScopes,
-    error: approve.error
+    error: approve.error == null ? undefined : errorText(approve.error, 'error')
   };
 }

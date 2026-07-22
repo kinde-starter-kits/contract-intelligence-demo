@@ -2,6 +2,7 @@ import {internalMutation, internalQuery} from './_generated/server';
 import {v, GenericId} from 'convex/values';
 import {Id} from './_generated/dataModel';
 import {agentAuth} from './agentAuth';
+import {insertRunEvent} from './runEvents';
 
 /**
  * Internal host-app logic behind the crew's HTTP endpoints (convex/http.ts).
@@ -79,6 +80,12 @@ export const startReview = internalMutation({
       mode: args.mode,
       status: 'running',
       startedAt: now
+    });
+    await insertRunEvent(ctx, {
+      reviewRunId,
+      orgCode: args.orgCode,
+      type: 'run_started',
+      message: `Review run started (mode: ${args.mode}) for ${args.actingSubject}.`
     });
 
     return {reviewRunId, instanceId, mode: args.mode};
@@ -184,6 +191,17 @@ export const flagClause = internalMutation({
         args.authz.correlationId ?? `${run.instanceId}:flag:${args.clauseId}`,
       decidedAt: Date.now()
     });
+    await insertRunEvent(ctx, {
+      reviewRunId: args.reviewRunId,
+      orgCode: args.orgCode,
+      type: 'clause_flagged',
+      message: `Clause ${clause.index} flagged ${args.riskLevel} risk.`,
+      detail: {
+        clauseId: args.clauseId,
+        clauseIndex: clause.index,
+        riskLevel: args.riskLevel
+      }
+    });
     return {
       clauseId: args.clauseId,
       riskLevel: args.riskLevel,
@@ -224,6 +242,18 @@ export const approveClause = internalMutation({
         `${run.instanceId}:approve:${args.clauseId}`,
       decidedAt: Date.now()
     });
+    await insertRunEvent(ctx, {
+      reviewRunId: args.reviewRunId,
+      orgCode: args.orgCode,
+      type: 'signoff_allowed',
+      message: `Clause ${clause.index} approved (${args.authz.mode}).`,
+      detail: {
+        clauseId: args.clauseId,
+        clauseIndex: clause.index,
+        status: 'approved',
+        correlationId: args.authz.correlationId ?? undefined
+      }
+    });
     return {
       clauseId: args.clauseId,
       status: 'approved' as const,
@@ -244,6 +274,12 @@ export const completeReview = internalMutation({
     await ctx.db.patch(args.reviewRunId, {
       status: 'completed',
       finishedAt: Date.now()
+    });
+    await insertRunEvent(ctx, {
+      reviewRunId: args.reviewRunId,
+      orgCode: args.orgCode,
+      type: 'run_complete',
+      message: 'Review run complete.'
     });
     return null;
   }

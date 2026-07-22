@@ -5,6 +5,7 @@ import {useQuery} from 'convex/react';
 import {api} from '@/convex/_generated/api';
 import type {Id} from '@/convex/_generated/dataModel';
 import {approveClauseAsHuman, type ApproveResult} from '../actions';
+import {errorText} from '@/lib/error-text';
 
 function riskClass(level: string) {
   return `risk-${level}`;
@@ -146,7 +147,8 @@ function ApproveNotice({res}: {res: ApproveResult}) {
     return (
       <div className="notice deny">
         ⛔ <strong>Denied by the backend</strong> (HTTP 403, mode{' '}
-        <strong>{res.mode}</strong>). reason: <code>{res.reason}</code>
+        <strong>{res.mode}</strong>). reason:{' '}
+        <code>{errorText(res.reason, 'denied')}</code>
         {res.requiredScopes && res.requiredScopes.length > 0 && (
           <>
             {' '}
@@ -164,8 +166,8 @@ function ApproveNotice({res}: {res: ApproveResult}) {
   }
   return (
     <div className="notice deny">
-      ⚠️ {res.error ?? 'error'} (HTTP {res.status})
-      {res.reason ? <> — {res.reason}</> : null}
+      ⚠️ {errorText(res.error, 'error')} (HTTP {res.status})
+      {res.reason ? <> — {errorText(res.reason, '')}</> : null}
     </div>
   );
 }

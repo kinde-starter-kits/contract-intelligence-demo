@@ -1,7 +1,8 @@
 import {LoginLink, LogoutLink} from '@kinde-oss/kinde-auth-nextjs/components';
-import {resolveSessionPermissions} from '@/lib/kinde';
+import {getActingIdentity} from '@/lib/acting-identity';
 import {PERMISSIONS} from '@/lib/permissions';
 import {ModeBadge} from './_components/ModeBadge';
+import {GuestSwitcher} from './_components/GuestSwitcher';
 import {Contracts} from './_components/Contracts';
 import {Runs} from './_components/Runs';
 import {Audit} from './_components/Audit';
@@ -15,14 +16,18 @@ const PERMISSION_LABELS: Record<string, string> = {
 };
 
 export default async function Dashboard() {
-  const session = await resolveSessionPermissions();
+  const identity = await getActingIdentity();
 
-  if (!session.authenticated || !session.orgCode) {
+  if (identity.kind === 'none' || !identity.orgCode || !identity.subject) {
     return (
       <main className="wrap">
+        <div className="topbar">
+          <h1>Contract Intelligence</h1>
+          <GuestSwitcher current={null} />
+        </div>
         <p className="muted">
-          You are not signed in to an organization.{' '}
-          <LoginLink>Sign in</LoginLink>
+          Pick a role above to try the demo as a pre-provisioned test user, or{' '}
+          <LoginLink>sign in as yourself</LoginLink>.
         </p>
       </main>
     );
@@ -33,8 +38,11 @@ export default async function Dashboard() {
       <div className="topbar">
         <h1>Contract Intelligence</h1>
         <div className="row">
-          <span className="muted">{session.email ?? session.userId}</span>
-          <LogoutLink className="btn">Sign out</LogoutLink>
+          <span className="muted">{identity.label}</span>
+          <GuestSwitcher current={identity.role} />
+          {identity.kind === 'kinde' && (
+            <LogoutLink className="btn">Sign out</LogoutLink>
+          )}
         </div>
       </div>
 
@@ -44,18 +52,18 @@ export default async function Dashboard() {
 
       <div className="grid two">
         <div className="grid">
-          <Contracts orgCode={session.orgCode} />
-          <Audit orgCode={session.orgCode} />
+          <Contracts orgCode={identity.orgCode} />
+          <Audit orgCode={identity.orgCode} />
         </div>
         <div className="grid">
           <div className="card">
             <h2>Your permissions</h2>
             <p className="muted" style={{marginTop: 0, fontSize: '0.82rem'}}>
-              Read from your verified Kinde session — the ceiling the crew is
-              held to when acting for you (in intersection mode).
+              Resolved live from Kinde for the acting user — the ceiling the
+              crew is held to when acting for you (in intersection mode).
             </p>
             <ul style={{margin: 0, paddingLeft: '1.1rem'}}>
-              {Object.entries(session.granted).map(([key, granted]) => (
+              {Object.entries(identity.granted).map(([key, granted]) => (
                 <li key={key} style={{fontSize: '0.87rem'}}>
                   <code>{key}</code> — {PERMISSION_LABELS[key] ?? key}:{' '}
                   <strong className={granted ? 'risk-low' : 'risk-high'}>
@@ -65,7 +73,7 @@ export default async function Dashboard() {
               ))}
             </ul>
           </div>
-          <Runs orgCode={session.orgCode} />
+          <Runs orgCode={identity.orgCode} />
         </div>
       </div>
     </main>

@@ -2,7 +2,7 @@ import {httpRouter} from 'convex/server';
 import {httpAction, ActionCtx} from './_generated/server';
 import {internal} from './_generated/api';
 import {resolveAuthzMode, authorizeAgentAction} from './authz';
-import {resolveOrgUserPermissions} from './kindeManagement';
+import {resolveOrgUserPermissions} from '../lib/kinde-management';
 
 // This app's permission set — the ceiling passed into the delegation is filtered
 // to these (the intersection with agent.scopes limits it anyway).
@@ -249,6 +249,18 @@ http.route({
       if (!decision.allowed) {
         // Human ∩ agent denied it (e.g. a read-only Intern). Machine-readable
         // reason + correlationId; the clause is NOT flipped.
+        await ctx.runMutation(internal.runEvents.emit, {
+          reviewRunId: body.reviewRunId,
+          orgCode: auth.orgCode,
+          type: 'signoff_denied',
+          message: `Sign-off denied: ${decision.reason}.`,
+          detail: {
+            clauseId: body.clauseId,
+            status: 'denied',
+            reason: decision.reason,
+            correlationId: decision.correlationId ?? undefined
+          }
+        });
         return json({error: 'authorization_denied', ...decision}, 403);
       }
 
@@ -281,6 +293,40 @@ http.route({
         reviewRunId: body.reviewRunId
       });
       return json({ok: true}, 200);
+    } catch (e) {
+      return json({error: e instanceof Error ? e.message : String(e)}, 400);
+    }
+  })
+});
+
+// POST /agent/event  { reviewRunId, type, message, detail? }
+//   The crew posts its finer step events here (extractor_started, clause_extracted,
+//   clause_assessed, signoff_attempted) so the UI can render them live. Verified
+//   with the crew token; the run must belong to the caller's org.
+http.route({
+  path: '/agent/event',
+  method: 'POST',
+  handler: httpAction(async (ctx, request) => {
+    const auth = await authenticate(ctx, request);
+    if (!auth.ok) return auth.response;
+    const body = await request.json();
+    if (!body?.reviewRunId || !body?.type) {
+      return json({error: 'missing_event_fields'}, 400);
+    }
+    try {
+      const run = await ctx.runQuery(internal.agentReview.getReviewRun, {
+        reviewRunId: body.reviewRunId,
+        orgCode: auth.orgCode
+      });
+      if (!run) return json({error: 'review_run_not_found'}, 404);
+      const result = await ctx.runMutation(internal.runEvents.emit, {
+        reviewRunId: body.reviewRunId,
+        orgCode: auth.orgCode,
+        type: String(body.type),
+        message: String(body.message ?? ''),
+        detail: body.detail
+      });
+      return json(result, 200);
     } catch (e) {
       return json({error: e instanceof Error ? e.message : String(e)}, 400);
     }

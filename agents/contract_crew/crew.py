@@ -18,8 +18,17 @@ from .app_client import AppClient
 from .tools import RunContext, make_tools
 
 
-def build_crew(client: AppClient, ctx: RunContext, contract_id: str, llm_model: str) -> Crew:
-    llm = LLM(model=llm_model)
+def build_crew(
+    client: AppClient,
+    ctx: RunContext,
+    contract_id: str,
+    llm_model: str,
+    llm_api_key: str | None = None,
+) -> Crew:
+    # BYOK: the visitor's key is supplied per-run and passed straight to the LLM;
+    # it is used only for this crew and never stored. When absent (local dev), the
+    # LLM falls back to the provider key in the environment.
+    llm = LLM(model=llm_model, api_key=llm_api_key) if llm_api_key else LLM(model=llm_model)
     tools = make_tools(client, ctx)
 
     extractor = Agent(

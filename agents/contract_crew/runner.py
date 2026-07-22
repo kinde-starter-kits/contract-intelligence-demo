@@ -96,8 +96,16 @@ def run_deterministic(
     review_run_id = started["reviewRunId"]
     ctx = RunContext(review_run_id=review_run_id)
 
+    client.emit_event(review_run_id, "extractor_started", "Clause Extractor started.")
     clauses = client.get_clauses(contract_id)
     for clause in clauses:
+        idx = clause.get("index")
+        client.emit_event(
+            review_run_id,
+            "clause_extracted",
+            f"Clause {idx} extracted.",
+            {"clauseId": clause["clauseId"], "clauseIndex": idx},
+        )
         # Use the retrieval seam for risk context (best-effort; the decision is
         # rule-based here so a retrieval hiccup doesn't abort the review).
         try:
@@ -106,10 +114,22 @@ def run_deterministic(
             print(f"  (similar retrieval skipped for {clause['clauseId']}: {exc})")
 
         risk, rationale = assess_risk(clause["text"])
+        client.emit_event(
+            review_run_id,
+            "clause_assessed",
+            f"Clause {idx} assessed: {risk} risk.",
+            {"clauseId": clause["clauseId"], "clauseIndex": idx, "riskLevel": risk},
+        )
         ctx.flagged.append(
             client.flag_clause(review_run_id, clause["clauseId"], risk, rationale)
         )
         if risk == "low":
+            client.emit_event(
+                review_run_id,
+                "signoff_attempted",
+                f"Sign-off attempted for clause {idx}.",
+                {"clauseId": clause["clauseId"], "clauseIndex": idx},
+            )
             ctx.approved.append(
                 client.approve_clause(review_run_id, clause["clauseId"])
             )
@@ -130,6 +150,8 @@ def run_with_crew(
     acting_subject: str,
     *,
     config: Config | None = None,
+    llm_api_key: str | None = None,
+    llm_model: str | None = None,
 ) -> ReviewSummary:
     from .crew import build_crew  # imported lazily so no-LLM runs don't need it
 
@@ -139,7 +161,11 @@ def run_with_crew(
     started = client.start_review(contract_id)
     ctx = RunContext(review_run_id=started["reviewRunId"])
 
-    crew = build_crew(client, ctx, contract_id, config.llm_model)
+    # BYOK: the per-run key threads to the LLM only; it is never attached to the
+    # AppClient, never sent to Convex, and never recorded on the run.
+    crew = build_crew(
+        client, ctx, contract_id, llm_model or config.llm_model, llm_api_key
+    )
     crew.kickoff()
 
     client.complete_review(ctx.review_run_id)
