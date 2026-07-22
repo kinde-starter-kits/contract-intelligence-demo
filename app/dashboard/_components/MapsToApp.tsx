@@ -7,13 +7,9 @@ export function MapsToApp() {
   return (
     <div className="aside">
       <h3>How this maps to your app</h3>
-      <p className="aside-sub">
-        Three lines of intent, at the point the agent acts:
-      </p>
+      <p className="aside-sub">The key call, where the agent acts:</p>
       <pre className="codeblock">
-        <span className="c">
-          {'// at the action boundary — not just at login'}
-        </span>
+        <span className="c">{'// at the action boundary, not at login'}</span>
         {'\n'}
         <span className="k">const</span>
         {' { decision } = '}
@@ -23,7 +19,7 @@ export function MapsToApp() {
         {'(ctx, token, {'}
         {'\n  instanceId, action: '}
         <span className="s">{"'clauses:approve'"}</span>
-        {' // human ∩ agent'}
+        {' // user ∩ agent'}
         {'\n});'}
         {'\n'}
         <span className="k">if</span>
@@ -35,16 +31,16 @@ export function MapsToApp() {
       </pre>
       <ul className="maplist">
         <li>
-          <strong>Check at the action boundary.</strong> Authorize where the
-          agent acts (approve), not once at login.
+          <strong>Check at the action.</strong> Call authorize where the agent
+          acts, not once at login.
         </li>
         <li>
-          <strong>Enforce human ∩ agent.</strong> The agent can never exceed the
-          permissions of the person it acts for.
+          <strong>Enforce user ∩ agent.</strong> The agent cannot exceed its
+          user&apos;s permissions.
         </li>
         <li>
           <strong>Keep the receipt.</strong> Every decision writes an audit row
-          with a <code>correlationId</code> you can trace later.
+          with a <code>correlationId</code>. You can trace it later.
         </li>
       </ul>
     </div>

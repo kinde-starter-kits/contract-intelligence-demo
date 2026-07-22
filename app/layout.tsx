@@ -1,13 +1,10 @@
 import type {Metadata} from 'next';
-import {Space_Grotesk, JetBrains_Mono} from 'next/font/google';
+import {Inter, JetBrains_Mono} from 'next/font/google';
 import './globals.css';
 import {Providers} from './providers';
 
-// Two voices, on purpose. The demo is about a confusion between a HUMAN's
-// authority and a MACHINE's: Space Grotesk carries the human framing and UI;
-// JetBrains Mono is the machine's own voice — the agent's log, scopes, and
-// correlation ids. The typography encodes the theme.
-const display = Space_Grotesk({
+// Inter for the interface and text. JetBrains Mono for code, ids, and data.
+const display = Inter({
   subsets: ['latin'],
   variable: '--font-display',
   display: 'swap'
@@ -19,9 +16,9 @@ const mono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: 'Confused Deputy — a live agent-authorization demo',
+  title: 'Contract Intelligence: an AI agent permissions demo',
   description:
-    'Watch an AI agent get tricked into approving something the human who triggered it could never approve — then watch Kinde stop it.'
+    'See how an AI agent gets tricked into doing something its user cannot do, and how Kinde stops it.'
 };
 
 export default function RootLayout({

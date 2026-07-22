@@ -44,10 +44,32 @@ export function ContractPicker({orgCode}: {orgCode: string}) {
 
   async function handleFile(file: File) {
     if (!file) return;
+    // Friendly client-side checks before we bother the server.
+    const isTxt =
+      /\.txt$/i.test(file.name) ||
+      file.type === 'text/plain' ||
+      file.type === '';
+    if (!isTxt) {
+      setErr(
+        'Please choose a plain-text .txt file. Other formats aren’t supported yet.'
+      );
+      return;
+    }
+    if (file.size > 200 * 1024) {
+      setErr(
+        'That file is too large. The limit is 200 KB, so try a shorter contract.'
+      );
+      return;
+    }
     setBusy('upload');
     setErr(null);
     try {
       const text = await file.text();
+      if (text.trim().length < 20) {
+        setErr('That file looks empty. There’s no contract text to review.');
+        setBusy(null);
+        return;
+      }
       const title = file.name.replace(/\.txt$/i, '');
       const resp = await fetch('/api/upload', {
         method: 'POST',
@@ -68,7 +90,7 @@ export function ContractPicker({orgCode}: {orgCode: string}) {
 
   return (
     <div>
-      {/* One uniform grid: existing contracts, the sample, and upload — all the
+      {/* One uniform grid: existing contracts, the sample, and upload, all the
           same height so nothing has dead space. */}
       <div className="pick-grid">
         {list.slice(0, 6).map((c) => (

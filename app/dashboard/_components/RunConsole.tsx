@@ -4,6 +4,7 @@ import {useState} from 'react';
 import {useQuery} from 'convex/react';
 import {api} from '@/convex/_generated/api';
 import {errorText} from '@/lib/error-text';
+import {CrewInfoModal} from './CrewInfoModal';
 
 type AuthzMode = 'broken' | 'intersection';
 type Engine = 'deterministic' | 'crew';
@@ -14,11 +15,22 @@ type Engine = 'deterministic' | 'crew';
  * pick it per run (when DEMO_MODE_SELECTABLE is on) so both can be seen without a
  * redeploy. The live steps appear in the timeline as the run streams.
  */
-export function RunConsole({contractId}: {contractId: string}) {
+export function RunConsole({
+  contractId,
+  crewAvailable = false,
+  onStart,
+  onError
+}: {
+  contractId: string;
+  crewAvailable?: boolean;
+  onStart?: () => void;
+  onError?: (message: string | null) => void;
+}) {
   const authz = useQuery(api.dashboard.getAuthzMode);
   const [authzMode, setAuthzMode] = useState<AuthzMode>('broken');
   const [engine, setEngine] = useState<Engine>('deterministic');
   const [apiKey, setApiKey] = useState('');
+  const [showCrewModal, setShowCrewModal] = useState(false);
   const [status, setStatus] = useState<'idle' | 'running' | 'done' | 'error'>(
     'idle'
   );
@@ -33,6 +45,7 @@ export function RunConsole({contractId}: {contractId: string}) {
   async function run() {
     setStatus('running');
     setMessage(null);
+    onStart?.();
     try {
       const resp = await fetch('/api/run', {
         method: 'POST',
@@ -47,14 +60,22 @@ export function RunConsole({contractId}: {contractId: string}) {
       const data = await resp.json().catch(() => ({}));
       if (resp.ok) {
         setStatus('done');
-        setMessage('Run complete — the timeline shows every step.');
+        setMessage(
+          'Run complete. The timeline has every step. To compare, switch the mode above and run again.'
+        );
+        onError?.(null);
       } else {
+        const msg = errorText(data?.message ?? data?.error, 'Run failed.');
         setStatus('error');
-        setMessage(errorText(data?.message ?? data?.error, 'Run failed.'));
+        setMessage(msg);
+        onError?.(msg);
       }
     } catch {
+      const msg =
+        'Could not reach the run endpoint. Check your connection. Try again.';
       setStatus('error');
-      setMessage('Could not reach the run endpoint.');
+      setMessage(msg);
+      onError?.(msg);
     }
   }
 
@@ -76,9 +97,7 @@ export function RunConsole({contractId}: {contractId: string}) {
             <span className="t">
               Broken <span className="risk-high">▲</span>
             </span>
-            <span className="d">
-              Agent acts on its own authority — watch the problem
-            </span>
+            <span className="d">The agent acts on its own authority.</span>
           </button>
           <button
             className="seg-btn safe"
@@ -90,7 +109,7 @@ export function RunConsole({contractId}: {contractId: string}) {
               Intersection <span className="risk-low">◆</span>
             </span>
             <span className="d">
-              The human&apos;s limits are enforced — watch the fix
+              The user&apos;s permissions are enforced too.
             </span>
           </button>
         </div>
@@ -99,10 +118,9 @@ export function RunConsole({contractId}: {contractId: string}) {
             className="muted"
             style={{fontSize: '0.78rem', margin: '0.55rem 0 0'}}
           >
-            Mode is set server-side to <strong>{serverMode}</strong> on this
-            deployment. Set{' '}
-            <code className="mono">DEMO_MODE_SELECTABLE=true</code> to switch it
-            here per run.
+            The mode is set on the deployment to <strong>{serverMode}</strong>.
+            To switch it per run from here, set{' '}
+            <code className="mono">DEMO_MODE_SELECTABLE=true</code>.
           </p>
         )}
       </div>
@@ -120,15 +138,24 @@ export function RunConsole({contractId}: {contractId: string}) {
             onClick={() => setEngine('deterministic')}
           >
             <span className="t">Deterministic</span>
-            <span className="d">No key — runs instantly</span>
+            <span className="d">No key needed. Runs instantly.</span>
           </button>
           <button
             className="seg-btn"
-            aria-pressed={engine === 'crew'}
-            onClick={() => setEngine('crew')}
+            aria-pressed={crewAvailable && engine === 'crew'}
+            onClick={() =>
+              crewAvailable ? setEngine('crew') : setShowCrewModal(true)
+            }
           >
-            <span className="t">Crew (LLM)</span>
-            <span className="d">BYOK — your key, this run only</span>
+            <span className="t">
+              Crew (LLM){' '}
+              {!crewAvailable && <span className="tagpill">local</span>}
+            </span>
+            <span className="d">
+              {crewAvailable
+                ? 'Your own key, used for this run only.'
+                : 'A real agent crew. Run it locally.'}
+            </span>
           </button>
         </div>
 
@@ -163,6 +190,10 @@ export function RunConsole({contractId}: {contractId: string}) {
           </p>
         )}
       </div>
+
+      {showCrewModal && (
+        <CrewInfoModal onClose={() => setShowCrewModal(false)} />
+      )}
     </div>
   );
 }
