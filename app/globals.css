@@ -1,43 +1,43 @@
 /* ============================================================================
    Contract Intelligence — a live demo of AI agent permissions.
-   Visual language: modern developer tool. Near-neutral dark surfaces, one
-   restrained blue accent used sparingly, flat and clean. Red means the problem,
-   green means the fix. No glow, no gradients, no glass.
+   Visual language: Kinde marketing aesthetic. Light/white base, near-black text,
+   white cards with subtle gray borders and soft shadows, generous whitespace.
+   One restrained blue accent used sparingly. Red means the problem, green means
+   the fix — both tuned for contrast on white. No glow, no gradients, no glass.
    ============================================================================ */
 
 :root {
-  /* Neutral near-black surfaces. */
-  --ink: #0a0a0b;
-  --ink-2: #0e0e10;
-  --panel: #131315;
-  --panel-2: #17171a;
-  --raise: #1c1c20;
-  --line: #27272b;
-  --line-soft: #1e1e22;
-  --line-bright: #34343b;
+  /* Light surfaces: off-white page, white cards that lift off it. */
+  --ink: #f7f7f8;
+  --ink-2: #f1f1f4;
+  --panel: #ffffff;
+  --panel-2: #f4f4f6;
+  --raise: #ffffff;
+  --line: #e4e4e8;
+  --line-soft: #ececef;
+  --line-bright: #d3d3da;
 
-  /* Text. */
-  --bone: #ededee;
-  --bone-dim: #a1a1aa;
-  --mute: #71717a;
+  /* Text — all AA+ on white. */
+  --bone: #18181b;
+  --bone-dim: #46464d;
+  --mute: #6b6b74;
 
-  /* One accent: a restrained blue. Used only for primary actions, links,
-     focus, and small indicators. */
-  --brand: #4d8dff;
-  --brand-2: #7aa9ff;
+  /* One accent: a restrained blue, readable as text on white and on tint. */
+  --brand: #2563eb;
+  --brand-2: #1d4ed8;
   --brand-ink: #ffffff;
-  --brand-weak: rgba(77, 141, 255, 0.14);
-  --brand-hover: #6a9eff;
+  --brand-weak: rgba(37, 99, 235, 0.09);
+  --brand-hover: #1d4ed8;
   --brand-grad: var(--brand);
 
-  /* Meaning. Kept flat. */
-  --alarm: #ef5a44;
-  --alarm-2: #f5836f;
-  --alarm-weak: rgba(239, 90, 68, 0.13);
-  --guard: #3fb972;
-  --guard-2: #66c98f;
-  --guard-weak: rgba(63, 185, 114, 0.13);
-  --amber: #e0a63c;
+  /* Meaning. Darkened so even small labels stay legible on white / on tint. */
+  --alarm: #dc2626;
+  --alarm-2: #b91c1c;
+  --alarm-weak: rgba(220, 38, 38, 0.08);
+  --guard: #15803d;
+  --guard-2: #166534;
+  --guard-weak: rgba(21, 128, 61, 0.1);
+  --amber: #b45309;
 
   --high: var(--alarm);
   --medium: var(--amber);
@@ -48,8 +48,9 @@
   --radius-xs: 5px;
   --maxw: 1080px;
 
-  --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.35);
-  --shadow-2: 0 6px 22px rgba(0, 0, 0, 0.45);
+  --shadow-1:
+    0 1px 2px rgba(24, 24, 27, 0.06), 0 1px 1px rgba(24, 24, 27, 0.04);
+  --shadow-2: 0 12px 34px rgba(24, 24, 27, 0.12);
 
   --font-display: 'Inter', ui-sans-serif, system-ui, sans-serif;
   --font-body: 'Inter', ui-sans-serif, system-ui, sans-serif;
@@ -1638,7 +1639,7 @@ tr.row-deny .cid-chip {
   display: grid;
   place-items: center;
   padding: 1.25rem;
-  background: rgba(0, 0, 0, 0.6);
+  background: rgba(24, 24, 27, 0.42);
   animation: fadein 0.12s ease both;
 }
 @keyframes fadein {
@@ -1722,6 +1723,20 @@ tr.row-deny .cid-chip {
   color: var(--bone);
   background: var(--panel-2);
   border-color: var(--line);
+}
+
+/* ---- Light-theme lift ----
+   White cards get a soft shadow so they read as raised off the off-white page —
+   the calm, premium Kinde marketing feel. Inset controls (inputs, pick/seg
+   cards, code) stay flat and recessed instead. */
+.step,
+.card,
+.tape-card,
+.aside,
+.setup-ribbon,
+.auth-card,
+details.evidence {
+  box-shadow: var(--shadow-1);
 }
 
 @media (prefers-reduced-motion: reduce) {

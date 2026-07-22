@@ -24,6 +24,7 @@ import {
   upsertClauses,
   type ClauseRecord
 } from '../lib/weaviate';
+import {SAMPLE_CONTRACT_TITLE} from '../lib/sample';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const ORG = 'org_d8d0c41009eb1';
@@ -145,7 +146,7 @@ async function main() {
       JSON.stringify({
         orgCode: ORG,
         uploadedBy: ADMIN,
-        title: 'Acme Master Services Agreement',
+        title: SAMPLE_CONTRACT_TITLE,
         text
       })
     ])
