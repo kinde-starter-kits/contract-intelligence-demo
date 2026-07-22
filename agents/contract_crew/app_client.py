@@ -50,6 +50,27 @@ class AppClient:
         resp.raise_for_status()
         return resp.json()
 
+    def emit_event(
+        self,
+        review_run_id: str,
+        event_type: str,
+        message: str = "",
+        detail: dict | None = None,
+    ) -> None:
+        """Emit a live run event (best-effort; a missed event never fails a run)."""
+        try:
+            self._post_convex(
+                "/agent/event",
+                {
+                    "reviewRunId": review_run_id,
+                    "type": event_type,
+                    "message": message,
+                    "detail": detail or {},
+                },
+            )
+        except Exception:  # pragma: no cover - events are best-effort
+            pass
+
     # --- Review lifecycle ---
 
     def start_review(self, contract_id: str) -> dict:

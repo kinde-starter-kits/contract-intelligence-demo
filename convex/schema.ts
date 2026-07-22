@@ -74,5 +74,29 @@ export default defineSchema({
     finishedAt: v.optional(v.number())
   })
     .index('by_contract', ['contractId'])
+    .index('by_orgCode', ['orgCode']),
+
+  // Step-by-step events emitted as a review run progresses, so the UI can render
+  // the agent's work live (Convex reactivity) and replay a finished run. Written
+  // by the app (on each crew action) and by the crew (finer steps via /agent/event).
+  runEvents: defineTable({
+    reviewRunId: v.id('reviewRuns'),
+    orgCode: v.string(),
+    seq: v.number(), // monotonic order within the run
+    type: v.string(), // run_started | extractor_started | clause_extracted | clause_assessed | clause_flagged | signoff_attempted | signoff_allowed | signoff_denied | run_complete
+    message: v.string(),
+    detail: v.optional(
+      v.object({
+        clauseId: v.optional(v.string()),
+        clauseIndex: v.optional(v.number()),
+        riskLevel: v.optional(v.string()),
+        status: v.optional(v.string()),
+        reason: v.optional(v.string()),
+        correlationId: v.optional(v.string())
+      })
+    ),
+    at: v.number()
+  })
+    .index('by_reviewRun', ['reviewRunId', 'seq'])
     .index('by_orgCode', ['orgCode'])
 });

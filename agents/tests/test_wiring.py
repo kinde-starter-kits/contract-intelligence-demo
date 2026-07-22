@@ -62,6 +62,11 @@ class FakeClient:
         self.calls.append(("complete_review", review_run_id))
         return {"ok": True}
 
+    def emit_event(self, review_run_id, event_type, message="", detail=None):
+        # Live run events are best-effort; record them so ordering can be checked.
+        self.calls.append(("emit_event", review_run_id, event_type))
+        return None
+
 
 def test_deterministic_runner_drives_full_flow():
     clauses = [

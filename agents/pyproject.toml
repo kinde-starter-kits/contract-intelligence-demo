@@ -13,7 +13,12 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = ["pytest>=8.0.0"]
+# httpx backs FastAPI's TestClient (used by the BYOK service tests).
+dev = ["pytest>=8.0.0", "httpx>=0.27"]
+# The BYOK HTTP service (contract_crew.service:app) — the product path where a
+# visitor supplies their own LLM key per run. Optional so the CLI + tests don't
+# require a web stack.
+service = ["fastapi>=0.110", "uvicorn>=0.29"]
 
 [build-system]
 requires = ["setuptools>=68"]

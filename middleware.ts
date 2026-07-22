@@ -1,9 +1,16 @@
 import {withAuth} from '@kinde-oss/kinde-auth-nextjs/middleware';
 
-// Protect the app surface behind a Kinde session. The public marketing page (/)
-// and Kinde's own /api/auth/* endpoints stay open; everything matched below
-// requires a signed-in human, redirecting to login otherwise.
-export default withAuth;
+/**
+ * The dashboard is a "try it live" surface: reachable by a GUEST (who picked a
+ * role → mapped to a real Kinde test user) OR by a signed-in human. So it's a
+ * public path here — it is NOT force-redirected to login. The page resolves the
+ * acting identity (guest cookie or Kinde session) and renders accordingly, and
+ * the real login ("sign in as yourself") stays available. Kinde's middleware
+ * still runs (session refresh) on matched paths.
+ */
+export default withAuth(async function middleware() {}, {
+  publicPaths: [/^\/dashboard(\/.*)?$/]
+});
 
 export const config = {
   matcher: ['/dashboard/:path*']
