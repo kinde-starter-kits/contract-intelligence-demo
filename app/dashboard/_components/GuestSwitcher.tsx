@@ -30,23 +30,28 @@ export function GuestSwitcher({current}: {current: string | null}) {
   }
 
   return (
-    <div className="row" style={{gap: '0.4rem'}}>
-      <span className="muted" style={{fontSize: '0.82rem'}}>
-        View as:
-      </span>
-      {ROLES.map((r) => (
-        <button
-          key={r}
-          className={current === r ? 'btn-primary' : ''}
-          disabled={pending}
-          onClick={() => pick(r)}
-        >
-          {r}
-        </button>
-      ))}
+    <div className="role-switch">
+      <span className="rs-label">acting as</span>
+      <div className="rs-group" role="group" aria-label="Acting role">
+        {ROLES.map((r) => (
+          <button
+            key={r}
+            className="rs-btn"
+            aria-pressed={current === r}
+            disabled={pending}
+            onClick={() => pick(r)}
+          >
+            {r}
+          </button>
+        ))}
+      </div>
       {current && (
-        <button disabled={pending} onClick={() => pick(null)}>
-          exit guest
+        <button
+          className="rs-exit"
+          disabled={pending}
+          onClick={() => pick(null)}
+        >
+          exit
         </button>
       )}
     </div>

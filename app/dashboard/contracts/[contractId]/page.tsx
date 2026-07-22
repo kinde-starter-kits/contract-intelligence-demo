@@ -12,6 +12,7 @@ import {LiveTape} from '../../_components/LiveTape';
 import {MapsToApp} from '../../_components/MapsToApp';
 import {Clauses} from '../../_components/Clauses';
 import {Audit} from '../../_components/Audit';
+import {SiteFooter} from '../../_components/SiteFooter';
 
 export const dynamic = 'force-dynamic';
 
@@ -113,7 +114,8 @@ export default async function Stage({
         />
       </div>
 
-      <div style={{marginTop: '1.75rem'}}>
+      <div className="evidence-wrap">
+        <div className="evidence-title">The evidence · for the skeptics</div>
         <details className="evidence">
           <summary>
             The clauses
@@ -157,6 +159,8 @@ export default async function Stage({
           </div>
         </details>
       </div>
+
+      <SiteFooter />
     </main>
   );
 }

@@ -1,27 +1,50 @@
 /**
- * A short, honest developer aside: what you'd wire in your own system to get the
- * behavior in the timeline. Kept brief — full docs/branding are elsewhere.
+ * A short, honest developer takeaway: the real shape of what you'd wire in your
+ * own system to get the behavior in the timeline. The snippet mirrors what this
+ * demo actually runs at the approve endpoint.
  */
 export function MapsToApp() {
   return (
     <div className="aside">
       <h3>How this maps to your app</h3>
+      <p className="aside-sub">
+        Three lines of intent, at the point the agent acts:
+      </p>
+      <pre className="codeblock">
+        <span className="c">
+          {'// at the action boundary — not just at login'}
+        </span>
+        {'\n'}
+        <span className="k">const</span>
+        {' { decision } = '}
+        <span className="k">await</span>
+        {' agentAuth.'}
+        <span className="k">authorize</span>
+        {'(ctx, token, {'}
+        {'\n  instanceId, action: '}
+        <span className="s">{"'clauses:approve'"}</span>
+        {' // human ∩ agent'}
+        {'\n});'}
+        {'\n'}
+        <span className="k">if</span>
+        {' (!decision.allowed) '}
+        <span className="k">return</span>
+        {' deny(decision.'}
+        <span className="d">reason</span>
+        {', decision.correlationId);'}
+      </pre>
       <ul className="maplist">
         <li>
-          <strong>Check at the action boundary.</strong> Call the
-          component&apos;s <code>authorize()</code> right where the agent takes
-          the action (approve), not just at login.
+          <strong>Check at the action boundary.</strong> Authorize where the
+          agent acts (approve), not once at login.
         </li>
         <li>
-          <strong>Pass the acting human&apos;s ceiling.</strong> Resolve the
-          triggering human&apos;s permissions and enforce{' '}
-          <code>human ∩ agent</code> — the agent can never exceed the person it
-          acts for.
+          <strong>Enforce human ∩ agent.</strong> The agent can never exceed the
+          permissions of the person it acts for.
         </li>
         <li>
           <strong>Keep the receipt.</strong> Every decision writes an audit row
-          with a <code>correlationId</code>, so an allow or deny is traceable
-          later.
+          with a <code>correlationId</code> you can trace later.
         </li>
       </ul>
     </div>

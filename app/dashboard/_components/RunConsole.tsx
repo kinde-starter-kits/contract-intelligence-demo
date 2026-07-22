@@ -148,9 +148,13 @@ export function RunConsole({contractId}: {contractId: string}) {
           disabled={status === 'running' || (engine === 'crew' && !apiKey)}
           onClick={run}
         >
-          {status === 'running'
-            ? 'Running…'
-            : `Run review as the acting user (${effectiveMode})`}
+          {status === 'running' ? (
+            <>
+              <span className="spinner" /> Running the review…
+            </>
+          ) : (
+            `Run review · ${effectiveMode}`
+          )}
         </button>
 
         {message && (
