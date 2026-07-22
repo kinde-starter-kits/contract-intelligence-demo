@@ -51,9 +51,9 @@ export function RoleChooser({current}: {current: Role | null}) {
         ))}
       </div>
       <p className="muted" style={{fontSize: '0.82rem', margin: '0.75rem 0 0'}}>
-        Each role is a real, pre-provisioned Kinde user — permissions are
-        resolved live, so what you can do is genuinely enforced. Prefer your own
-        account? <LoginLink>Sign in as yourself</LoginLink>.
+        Each role is a real Kinde user. Permissions come from Kinde. The demo
+        enforces what each role can do. To use your own account,{' '}
+        <LoginLink>sign in as yourself</LoginLink>.
       </p>
     </div>
   );

@@ -8,10 +8,10 @@ export function AuthorityGap() {
   return (
     <div className="gap-motif">
       <div className="auth-card human">
-        <span className="who">The human</span>
+        <span className="who">The user</span>
         <span className="name">Intern</span>
         <span className="perm">
-          <span className="x">✗</span> can&apos;t approve clauses
+          <span className="x">✗</span> cannot approve clauses
         </span>
       </div>
       <div className="gap-arrow" aria-hidden="true">
@@ -26,7 +26,7 @@ export function AuthorityGap() {
         </span>
       </div>
       <div className="gap-note">
-        The agent can do what the human can&apos;t.{' '}
+        The agent can do what the user cannot.{' '}
         <strong>That gap is the confused deputy.</strong>
       </div>
     </div>

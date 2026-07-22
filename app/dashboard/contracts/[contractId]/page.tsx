@@ -7,9 +7,7 @@ import {getActingIdentity} from '@/lib/acting-identity';
 import {PERMISSIONS} from '@/lib/permissions';
 import {RoleChooser} from '../../_components/RoleChooser';
 import {GuestSwitcher} from '../../_components/GuestSwitcher';
-import {RunConsole} from '../../_components/RunConsole';
-import {LiveTape} from '../../_components/LiveTape';
-import {MapsToApp} from '../../_components/MapsToApp';
+import {ReviewWorkbench} from '../../_components/ReviewWorkbench';
 import {Clauses} from '../../_components/Clauses';
 import {Audit} from '../../_components/Audit';
 import {SiteFooter} from '../../_components/SiteFooter';
@@ -39,7 +37,7 @@ export default async function Stage({
           </div>
         </div>
         <section className="frame">
-          <div className="eyebrow">Pick who you are first</div>
+          <div className="eyebrow">Choose a role first</div>
           <h1>Choose a role to review this contract.</h1>
         </section>
         <div className="step" style={{maxWidth: 640}}>
@@ -102,20 +100,21 @@ export default async function Stage({
         </Link>
       </div>
 
-      <div className="stage-grid">
-        <div className="rail">
-          <RunConsole contractId={contractId} />
-          <MapsToApp />
-        </div>
-        <LiveTape
-          contractId={contractId}
-          actorNoun={actorNoun}
-          actorCanApprove={canApprove}
-        />
-      </div>
+      <ReviewWorkbench
+        contractId={contractId}
+        actorNoun={actorNoun}
+        actorCanApprove={canApprove}
+        crewAvailable={!!process.env.CREW_SERVICE_URL}
+      />
 
       <div className="evidence-wrap">
-        <div className="evidence-title">The evidence · for the skeptics</div>
+        <div className="evidence-title">The records</div>
+        <p className="evidence-lead">
+          None of this is staged. Below is the raw proof. It shows the clauses
+          the agent acted on. It shows every decision Kinde&apos;s component
+          logged. A denied sign-off in the timeline and its audit row share the
+          same <code className="mono">correlationId</code>.
+        </p>
         <details className="evidence">
           <summary>
             The clauses
@@ -148,8 +147,8 @@ export default async function Stage({
                   key={key}
                   style={{fontSize: '0.87rem', color: 'var(--bone-dim)'}}
                 >
-                  <code className="mono">{key}</code> —{' '}
-                  {PERMISSION_LABELS[key] ?? key}:{' '}
+                  {PERMISSION_LABELS[key] ?? key} (
+                  <code className="mono">{key}</code>):{' '}
                   <strong className={granted ? 'risk-low' : 'risk-high'}>
                     {granted ? 'granted' : 'not granted'}
                   </strong>

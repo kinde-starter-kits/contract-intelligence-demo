@@ -57,78 +57,93 @@ export function Clauses({
             checked={revealControls}
             onChange={(e) => setReveal(e.target.checked)}
           />
-          Dev: reveal approve controls
+          Let me try approving one myself
         </label>
       </div>
-      {!canApprove && (
-        <p className="muted" style={{fontSize: '0.82rem', marginTop: 0}}>
-          Your role has no <code>clauses:approve</code> permission, so the
-          approve control is hidden. Toggle it on to force the action — in
-          intersection mode the backend still denies it (a hidden button proves
-          nothing).
-        </p>
-      )}
+      <p className="evi-lead">
+        The contract, split into clauses. Each row shows the risk the agent
+        assessed and who signed off.{' '}
+        {!canApprove && (
+          <>
+            Your role cannot approve, so the button is hidden. Tick the box to
+            show it and force the action. In intersection mode, the backend
+            still says no. A hidden button proves nothing. A real{' '}
+            <code>403</code> does.
+          </>
+        )}
+      </p>
 
       {clauses === undefined ? (
-        <div className="empty">Loading…</div>
+        <div className="empty">
+          <span className="spinner" /> Loading clauses…
+        </div>
+      ) : clauses.length === 0 ? (
+        <div className="empty">
+          <span className="empty-ico" aria-hidden="true">
+            📄
+          </span>
+          This contract has no clauses yet.
+        </div>
       ) : (
-        <table>
-          <thead>
-            <tr>
-              <th>#</th>
-              <th>Clause</th>
-              <th>Risk</th>
-              <th>Status</th>
-              <th>Decided by</th>
-              {showApprove && <th></th>}
-            </tr>
-          </thead>
-          <tbody>
-            {clauses.map((c) => (
-              <Fragment key={c._id}>
-                <tr>
-                  <td className="muted">{c.index}</td>
-                  <td className="clause-text">{c.text}</td>
-                  <td className={riskClass(c.riskLevel)}>{c.riskLevel}</td>
-                  <td>
-                    <span className={`badge ${statusBadge(c.status)}`}>
-                      {c.status}
-                    </span>
-                  </td>
-                  <td>
-                    <div className="mono">{c.decidedBy ?? '—'}</div>
-                    {c.decisionCorrelationId && (
-                      <div className="mono">{c.decisionCorrelationId}</div>
-                    )}
-                  </td>
-                  {showApprove && (
-                    <td>
-                      <button
-                        className="btn-primary"
-                        disabled={
-                          pendingId === c._id || c.status === 'approved'
-                        }
-                        onClick={() => onApprove(c._id)}
-                      >
-                        {pendingId === c._id ? 'Approving…' : 'Approve'}
-                      </button>
-                    </td>
-                  )}
-                </tr>
-                {result?.clauseId === c._id && (
+        <div className="table-scroll">
+          <table>
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Clause</th>
+                <th>Risk</th>
+                <th>Status</th>
+                <th>Decided by</th>
+                {showApprove && <th></th>}
+              </tr>
+            </thead>
+            <tbody>
+              {clauses.map((c) => (
+                <Fragment key={c._id}>
                   <tr>
-                    <td
-                      colSpan={showApprove ? 6 : 5}
-                      style={{borderBottom: 'none'}}
-                    >
-                      <ApproveNotice res={result.res} />
+                    <td className="muted">{c.index}</td>
+                    <td className="clause-text">{c.text}</td>
+                    <td className={riskClass(c.riskLevel)}>{c.riskLevel}</td>
+                    <td>
+                      <span className={`badge ${statusBadge(c.status)}`}>
+                        {c.status}
+                      </span>
                     </td>
+                    <td>
+                      <div className="mono">{c.decidedBy ?? '-'}</div>
+                      {c.decisionCorrelationId && (
+                        <div className="mono">{c.decisionCorrelationId}</div>
+                      )}
+                    </td>
+                    {showApprove && (
+                      <td>
+                        <button
+                          className="btn-primary"
+                          disabled={
+                            pendingId === c._id || c.status === 'approved'
+                          }
+                          onClick={() => onApprove(c._id)}
+                        >
+                          {pendingId === c._id ? 'Approving…' : 'Approve'}
+                        </button>
+                      </td>
+                    )}
                   </tr>
-                )}
-              </Fragment>
-            ))}
-          </tbody>
-        </table>
+                  {result?.clauseId === c._id && (
+                    <tr>
+                      <td
+                        colSpan={showApprove ? 6 : 5}
+                        style={{borderBottom: 'none'}}
+                      >
+                        <ApproveNotice res={result.res} />
+                      </td>
+                    </tr>
+                  )}
+                </Fragment>
+              ))}
+            </tbody>
+          </table>
+        </div>
       )}
     </div>
   );
@@ -138,16 +153,15 @@ function ApproveNotice({res}: {res: ApproveResult}) {
   if (res.ok) {
     return (
       <div className="notice allow">
-        ✅ Approved (mode <strong>{res.mode}</strong>). The action went through
-        the crew endpoint and was authorized.
+        Approved in {res.mode} mode. The action went through the crew endpoint.
+        Kinde authorized it.
       </div>
     );
   }
   if (res.status === 403) {
     return (
       <div className="notice deny">
-        ⛔ <strong>Denied by the backend</strong> (HTTP 403, mode{' '}
-        <strong>{res.mode}</strong>). reason:{' '}
+        Denied by the backend. HTTP 403, {res.mode} mode. Reason:{' '}
         <code>{errorText(res.reason, 'denied')}</code>
         {res.requiredScopes && res.requiredScopes.length > 0 && (
           <>
@@ -166,8 +180,8 @@ function ApproveNotice({res}: {res: ApproveResult}) {
   }
   return (
     <div className="notice deny">
-      ⚠️ {errorText(res.error, 'error')} (HTTP {res.status})
-      {res.reason ? <> — {errorText(res.reason, '')}</> : null}
+      {errorText(res.error, 'error')} (HTTP {res.status})
+      {res.reason ? <>. {errorText(res.reason, '')}</> : null}
     </div>
   );
 }

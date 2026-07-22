@@ -36,17 +36,16 @@ export default async function Launcher() {
       <section className="frame">
         <div className="eyebrow">The confused deputy, live</div>
         <h1>
-          Watch an AI agent get <span className="hl-bad">tricked</span> — then
-          watch Kinde <span className="hl-good">stop it</span>.
+          See an AI agent get <span className="hl-bad">tricked</span>, and see
+          Kinde <span className="hl-good">stop it</span>.
         </h1>
         <p className="lede">
-          AI <span className="term">agents</span> usually run with their own
-          permissions. So an agent can be led into doing something the person
-          who triggered it isn&apos;t allowed to do — a flaw called the{' '}
-          <span className="term">confused deputy</span>. Below, you&apos;ll run
-          an agent that reviews a contract, watch it rubber-stamp a risky clause
-          it never should, and then watch Kinde&apos;s permission check block
-          the exact same action.
+          An AI agent usually runs with its own permissions. So the agent can be
+          tricked into doing something its user is not allowed to do. This
+          problem has a name: the <span className="term">confused deputy</span>.
+          In this demo you run an agent that reviews a contract. You watch it
+          approve a risky clause that it should not. Then you watch Kinde block
+          the same action.
         </p>
         <AuthorityGap />
       </section>
@@ -55,8 +54,8 @@ export default async function Launcher() {
         <section className="step">
           <div className="step-head">
             <span className="step-num">1</span>
-            <h2>Who are you acting as?</h2>
-            <span className="hint">the human the agent acts for</span>
+            <h2>Who do you act as?</h2>
+            <span className="hint">the user the agent acts for</span>
           </div>
           <RoleChooser current={guestRole} />
         </section>
@@ -71,7 +70,7 @@ export default async function Launcher() {
             <ContractPicker orgCode={identity.orgCode as string} />
           ) : (
             <p className="muted" style={{fontSize: '0.88rem', margin: 0}}>
-              Choose a role above first — then pick or upload a contract.
+              Choose a role first. Then pick or upload a contract.
             </p>
           )}
         </section>

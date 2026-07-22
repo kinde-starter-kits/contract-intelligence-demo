@@ -41,11 +41,13 @@ const ICON: Record<string, string> = {
 export function LiveTape({
   contractId,
   actorNoun,
-  actorCanApprove
+  actorCanApprove,
+  runError
 }: {
   contractId: string;
   actorNoun: string;
   actorCanApprove: boolean;
+  runError?: string | null;
 }) {
   const run = useQuery(api.runEvents.latestReviewRun, {
     contractId: contractId as Id<'contracts'>
@@ -55,8 +57,10 @@ export function LiveTape({
     run ? {reviewRunId: run._id} : 'skip'
   );
 
-  const running = run?.status === 'running';
+  const errored = !!runError || run?.status === 'failed';
+  const running = run?.status === 'running' && !errored;
   const mode = run?.mode;
+  const hasComplete = (events ?? []).some((e) => e.type === 'run_complete');
 
   // Risk per clause, from the assessment events — used to spot the high-risk
   // approval that makes the confused deputy visceral.
@@ -86,19 +90,26 @@ export function LiveTape({
             <span className={`badge ${mode === 'broken' ? 'bad' : 'ok'}`}>
               {mode}
             </span>
-            <span>{run.status}</span>
+            <span>{errored ? 'error' : run.status}</span>
           </span>
         )}
       </div>
+
+      {errored && (
+        <div className="tape-error" role="alert">
+          The run didn’t finish.{' '}
+          {runError ?? 'Something went wrong partway through.'} The steps so far
+          are below. Press Run review to try again.
+        </div>
+      )}
 
       {!run ? (
         <div className="empty">
           <span className="empty-ico" aria-hidden="true">
             ▶
           </span>
-          Press <strong>Run review</strong> to watch the agent work through this
-          contract clause by clause — and watch what happens when it reaches the
-          high-risk clause.
+          Press Run review. The agent works through the contract, one clause at
+          a time. Watch the high-risk clause.
         </div>
       ) : events === undefined ? (
         <div className="empty">
@@ -159,17 +170,16 @@ export function LiveTape({
                   <div className="rupture bad">
                     <div className="r-eyebrow">⚠ Confused deputy</div>
                     <p className="r-say">
-                      The agent just approved a high-risk clause on its own
-                      authority. The {actorNoun} who triggered this run
-                      isn&apos;t allowed to approve clauses — but the agent did
-                      it for them anyway.
+                      The agent approved a high-risk clause. It used its own
+                      permissions. The {actorNoun} who started this run cannot
+                      approve clauses. The agent did it for them anyway.
                     </p>
                     <div className="r-machine">
                       <span>
                         <b>mode</b> broken
                       </span>
                       <span>
-                        <b>human checked</b> no
+                        <b>user checked</b> no
                       </span>
                     </div>
                   </div>
@@ -180,16 +190,16 @@ export function LiveTape({
                     <div className="r-eyebrow">⚙ Broken mode</div>
                     <p className="r-say">
                       The agent approved a high-risk clause on its own
-                      authority. Here the acting {actorNoun} does hold approve —
-                      but in broken mode it would have gone through even if they
-                      didn&apos;t. That&apos;s the risk this mode hides.
+                      authority. This {actorNoun} has approve permission. But in
+                      broken mode, the approval goes through even without it.
+                      That is the gap broken mode hides.
                     </p>
                     <div className="r-machine">
                       <span>
                         <b>mode</b> broken
                       </span>
                       <span>
-                        <b>human checked</b> no
+                        <b>user checked</b> no
                       </span>
                     </div>
                   </div>
@@ -199,9 +209,8 @@ export function LiveTape({
                   <div className="rupture good">
                     <div className="r-eyebrow">✋ Blocked by Kinde</div>
                     <p className="r-say">
-                      Blocked. The {actorNoun}&apos;s permissions don&apos;t
-                      include approve, so Kinde denied the agent acting for
-                      them.
+                      Kinde blocked it. The {actorNoun} does not have approve
+                      permission. Kinde denied the agent acting for them.
                     </p>
                     <div className="r-machine">
                       <span>
@@ -219,6 +228,18 @@ export function LiveTape({
             );
           })}
         </ol>
+      )}
+
+      {run && events && events.length > 0 && !errored && (
+        <div className={`tape-foot${hasComplete ? ' done' : ''}`}>
+          {hasComplete ? (
+            <>✦ Review complete</>
+          ) : (
+            <>
+              <span className="spinner" /> streaming…
+            </>
+          )}
+        </div>
       )}
     </div>
   );
