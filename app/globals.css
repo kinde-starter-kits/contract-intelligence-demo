@@ -174,12 +174,14 @@ h3 {
   align-items: center;
   gap: 0.45rem;
   font-family: var(--font-mono);
-  font-size: 0.74rem;
-  color: var(--bone-dim);
-  padding: 0.28rem 0.62rem;
-  border: 1px solid var(--line);
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--mute);
+  padding: 0.28rem 0.7rem;
+  border: 1px solid color-mix(in srgb, var(--brand) 40%, var(--line));
   border-radius: 999px;
-  background: var(--panel);
+  background: var(--brand-weak);
 }
 .whoami::before {
   content: '';
@@ -187,6 +189,27 @@ h3 {
   height: 6px;
   border-radius: 999px;
   background: var(--guard);
+}
+.whoami-role {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 0.82rem;
+  letter-spacing: -0.01em;
+  text-transform: capitalize;
+  color: var(--bone);
+}
+
+/* Header link out to Kinde. */
+.kinde-link {
+  font-family: var(--font-display);
+  font-weight: 500;
+  font-size: 0.82rem;
+  color: var(--bone-dim);
+  padding: 0.3rem 0.15rem;
+}
+.kinde-link:hover {
+  color: var(--bone);
+  text-decoration: none;
 }
 
 /* ---- Footer ---- */
@@ -213,6 +236,23 @@ h3 {
   border: 1px solid var(--line);
   border-radius: 999px;
   background: var(--panel);
+  transition:
+    border-color 0.12s,
+    color 0.12s;
+}
+a.powered:hover {
+  border-color: var(--line-bright);
+  color: var(--bone);
+  text-decoration: none;
+}
+a.powered:hover .k {
+  color: var(--brand-2);
+}
+.site-footer a {
+  color: var(--bone-dim);
+}
+.site-footer a:hover {
+  color: var(--bone);
 }
 .powered .k {
   font-family: var(--font-display);
@@ -465,11 +505,57 @@ h3 {
   line-height: 1.45;
 }
 .seg-btn[aria-pressed='true'] {
-  border-color: color-mix(in srgb, var(--brand) 55%, var(--line));
+  border-color: var(--brand);
   background: var(--brand-weak);
+  box-shadow: inset 0 0 0 1px var(--brand);
 }
 .seg-btn[aria-pressed='true'] .d {
   color: var(--bone-dim);
+}
+
+/* Role cards get an unmistakable "selected" affordance: a persistent check
+   badge that only shows on the active card, plus the accent ring above. */
+.role-card {
+  position: relative;
+}
+.role-card .role-check {
+  display: none;
+  margin-top: 0.15rem;
+  font-family: var(--font-mono);
+  font-size: 0.66rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--brand-2);
+}
+.role-card[aria-pressed='true'] .role-check {
+  display: inline-block;
+}
+.role-card[aria-pressed='true'] .t {
+  color: var(--brand-2);
+}
+.role-confirm {
+  margin: 0.85rem 0 0;
+  padding: 0.6rem 0.8rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid color-mix(in srgb, var(--brand) 35%, var(--line));
+  background: var(--brand-weak);
+  font-size: 0.85rem;
+  color: var(--bone-dim);
+}
+.role-confirm strong {
+  color: var(--bone);
+}
+
+/* Step 2, before a role is chosen. */
+.step-locked {
+  margin: 0;
+  padding: 0.85rem 1rem;
+  border: 1px dashed var(--line-bright);
+  border-radius: var(--radius-sm);
+  background: var(--ink-2);
+  color: var(--bone-dim);
+  font-size: 0.86rem;
 }
 .seg-btn.danger[aria-pressed='true'] {
   border-color: color-mix(in srgb, var(--alarm) 55%, var(--line));
@@ -548,6 +634,31 @@ h3 {
   font-family: var(--font-mono);
   font-size: 0.73rem;
   color: var(--mute);
+}
+/* The sample is the fastest path to a run — mark it as the recommended pick. */
+.pick-sample {
+  border-color: color-mix(in srgb, var(--brand) 45%, var(--line));
+  background: var(--brand-weak);
+}
+.pick-sample:hover:not(:disabled) {
+  border-color: var(--brand);
+  background: color-mix(in srgb, var(--brand) 18%, var(--ink-2));
+}
+.pick-sample .title {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.pick-tag {
+  font-family: var(--font-mono);
+  font-size: 0.58rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--brand-ink);
+  background: var(--brand);
+  padding: 0.08rem 0.4rem;
+  border-radius: 999px;
 }
 .dropzone {
   border: 1px dashed var(--line-bright);

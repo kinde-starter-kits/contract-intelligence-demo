@@ -73,6 +73,14 @@ export default async function Stage({
           {identity.kind === 'kinde' && (
             <LogoutLink className="btn btn-ghost">Sign out</LogoutLink>
           )}
+          <a
+            className="kinde-link"
+            href="https://kinde.com"
+            target="_blank"
+            rel="noreferrer"
+          >
+            Kinde ↗
+          </a>
         </div>
       </div>
 

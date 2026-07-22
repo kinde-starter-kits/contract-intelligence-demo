@@ -15,6 +15,7 @@ export default async function Launcher() {
     identity.kind === 'guest'
       ? (identity.role as 'intern' | 'analyst' | 'admin')
       : null;
+  const actingLabel = guestRole ?? identity.label;
 
   return (
     <main className="shell">
@@ -25,11 +26,22 @@ export default async function Launcher() {
         </div>
         <div className="topbar-right">
           {ready && (
-            <span className="whoami">acting as · {identity.label}</span>
+            <span className="whoami">
+              acting as
+              <strong className="whoami-role">{actingLabel}</strong>
+            </span>
           )}
           {identity.kind === 'kinde' && (
             <LogoutLink className="btn btn-ghost">Sign out</LogoutLink>
           )}
+          <a
+            className="kinde-link"
+            href="https://kinde.com"
+            target="_blank"
+            rel="noreferrer"
+          >
+            Kinde ↗
+          </a>
         </div>
       </div>
 
@@ -69,8 +81,9 @@ export default async function Launcher() {
           {ready ? (
             <ContractPicker orgCode={identity.orgCode as string} />
           ) : (
-            <p className="muted" style={{fontSize: '0.88rem', margin: 0}}>
-              Choose a role first. Then pick or upload a contract.
+            <p className="step-locked">
+              ↑ Choose a role in step 1 first. Then the sample contract and
+              upload appear here.
             </p>
           )}
         </section>
