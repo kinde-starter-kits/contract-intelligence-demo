@@ -55,6 +55,12 @@ export async function POST(req: NextRequest) {
   const model = typeof body?.model === 'string' ? body.model : undefined;
   // Default to the self-contained deterministic run; crew (BYOK) is opt-in.
   const mode = body?.mode === 'crew' ? 'crew' : 'deterministic';
+  // The demo operator's chosen authorization mode (broken|intersection). The
+  // Convex endpoint only honors it when DEMO_MODE_SELECTABLE is on.
+  const authzMode =
+    body?.authzMode === 'broken' || body?.authzMode === 'intersection'
+      ? body.authzMode
+      : undefined;
 
   if (!contractId) {
     return NextResponse.json({error: 'contract_required'}, {status: 400});
@@ -79,7 +85,9 @@ export async function POST(req: NextRequest) {
     }
     try {
       const post = siteCrewPost(site, token, identity.subject);
-      const summary = await runDeterministicReview(post, contractId);
+      const summary = await runDeterministicReview(post, contractId, {
+        authzMode
+      });
       return NextResponse.json({ok: true, summary});
     } catch (e) {
       if (e instanceof RunError) {
@@ -110,7 +118,8 @@ export async function POST(req: NextRequest) {
         actingSubject: identity.subject,
         apiKey,
         model,
-        mode: 'crew'
+        mode: 'crew',
+        authzMode
       })
     });
   } catch {

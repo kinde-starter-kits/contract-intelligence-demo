@@ -19,10 +19,12 @@
 let cachedToken: {token: string; expiresAt: number} | null = null;
 
 function domain(): string {
-  const d = (process.env.KINDE_DOMAIN ?? '')
-    .replace(/^https?:\/\//, '')
-    .replace(/\/$/, '');
-  if (!d) throw new Error('KINDE_DOMAIN is not set.');
+  // Convex reads KINDE_DOMAIN (deployment env); the Next.js app env (.env.local)
+  // typically carries KINDE_ISSUER_URL instead. Accept either so guest-mode
+  // permission resolution works app-side, not just at review-start on Convex.
+  const raw = process.env.KINDE_DOMAIN || process.env.KINDE_ISSUER_URL || '';
+  const d = raw.replace(/^https?:\/\//, '').replace(/\/$/, '');
+  if (!d) throw new Error('KINDE_DOMAIN (or KINDE_ISSUER_URL) is not set.');
   return d;
 }
 

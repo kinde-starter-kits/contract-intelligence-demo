@@ -2,7 +2,7 @@ import {query} from './_generated/server';
 import {components} from './_generated/api';
 import {paginationOptsValidator} from 'convex/server';
 import {v} from 'convex/values';
-import {resolveAuthzMode} from './authz';
+import {resolveAuthzMode, isDemoModeSelectable} from './authz';
 
 /**
  * Read-only queries backing the dashboard UI. They are org-scoped by the
@@ -18,9 +18,13 @@ import {resolveAuthzMode} from './authz';
 export const getAuthzMode = query({
   args: {},
   returns: v.object({
-    mode: v.union(v.literal('broken'), v.literal('intersection'))
+    mode: v.union(v.literal('broken'), v.literal('intersection')),
+    selectable: v.boolean()
   }),
-  handler: async () => ({mode: resolveAuthzMode()})
+  handler: async () => ({
+    mode: resolveAuthzMode(),
+    selectable: isDemoModeSelectable()
+  })
 });
 
 /** Review runs for an org, newest first. */

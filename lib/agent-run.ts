@@ -2,13 +2,19 @@
  * Server-side deterministic review driver.
  *
  * This is the self-contained "Run review" path: it drives the SAME Convex crew
- * endpoints the Python crew does (start → clauses → flag → approve low-risk →
- * complete), emitting the same live run events, so a run streams end-to-end from
- * the UI with no external service and no LLM key. It authenticates as the crew
- * M2M and carries the acting human's subject on every call, so enforcement runs
- * genuinely in BOTH modes: in `broken` every action goes through; in
- * `intersection` a low-permission human's flag/approve is denied (and a
- * `signoff_denied` event is streamed).
+ * endpoints the Python crew does (start → clauses → assess → flag → attempt
+ * sign-off → complete), emitting the same live run events, so a run streams
+ * end-to-end from the UI with no external service and no LLM key. It
+ * authenticates as the crew M2M and carries the acting human's subject on every
+ * call, so enforcement runs genuinely in BOTH modes: in `broken` every action
+ * goes through (including approving a HIGH-risk clause the acting human could
+ * never approve — the confused deputy); in `intersection` a low-permission
+ * human's flag/approve is denied (and a `signoff_denied` event is streamed).
+ *
+ * The sign-off agent attempts to approve EVERY clause (a plausible
+ * "auto-approve this contract" agent). That is deliberate: it's what makes the
+ * confused-deputy moment visible — in broken mode the dangerous indemnification
+ * clause gets rubber-stamped on the agent's authority.
  *
  * The BYOK LLM crew is a separate, opt-in path (the Python FastAPI service).
  */
@@ -96,7 +102,8 @@ interface AgentClause {
  */
 export async function runDeterministicReview(
   post: CrewPost,
-  contractId: string
+  contractId: string,
+  opts: {authzMode?: 'broken' | 'intersection'} = {}
 ): Promise<DeterministicRunResult> {
   const emit = async (
     reviewRunId: string,
@@ -116,7 +123,12 @@ export async function runDeterministicReview(
     }
   };
 
-  const start = await post('/agent/review/start', {contractId});
+  // The demo operator's chosen mode is sent along; the server honors it only
+  // when DEMO_MODE_SELECTABLE is on (otherwise the deployment's AUTHZ_MODE wins).
+  const start = await post('/agent/review/start', {
+    contractId,
+    ...(opts.authzMode ? {mode: opts.authzMode} : {})
+  });
   if (start.status !== 200 || !start.body?.reviewRunId) {
     throw new RunError(
       start.status || 502,
@@ -166,20 +178,22 @@ export async function runDeterministicReview(
     });
     if (flag.status === 200) flagged++;
 
-    if (level === 'low') {
-      await emit(
-        reviewRunId,
-        'signoff_attempted',
-        `Sign-off attempted for clause ${clause.index}.`,
-        {clauseId: clause.clauseId, clauseIndex: clause.index}
-      );
-      const appr = await post('/agent/approve', {
-        reviewRunId,
-        clauseId: clause.clauseId
-      });
-      if (appr.status === 200) approved++;
-      else if (appr.status === 403) denied++;
-    }
+    // The sign-off agent attempts to approve EVERY clause — including the
+    // high-risk ones. In broken mode that rubber-stamps the dangerous clause on
+    // the agent's authority (the confused deputy); in intersection mode Kinde
+    // denies it when the acting human lacks approve.
+    await emit(
+      reviewRunId,
+      'signoff_attempted',
+      `Sign-off attempted for clause ${clause.index}.`,
+      {clauseId: clause.clauseId, clauseIndex: clause.index, riskLevel: level}
+    );
+    const appr = await post('/agent/approve', {
+      reviewRunId,
+      clauseId: clause.clauseId
+    });
+    if (appr.status === 200) approved++;
+    else if (appr.status === 403) denied++;
   }
 
   await post('/agent/review/complete', {reviewRunId});
