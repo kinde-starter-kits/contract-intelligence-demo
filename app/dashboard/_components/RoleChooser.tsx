@@ -32,13 +32,15 @@ export function RoleChooser({current}: {current: Role | null}) {
     });
   }
 
+  const active = ROLES.find((r) => r.role === current) ?? null;
+
   return (
     <div>
       <div className="seg cols-3">
         {ROLES.map(({role, can}) => (
           <button
             key={role}
-            className="seg-btn"
+            className="seg-btn role-card"
             aria-pressed={current === role}
             disabled={pending}
             onClick={() => pick(role)}
@@ -47,14 +49,29 @@ export function RoleChooser({current}: {current: Role | null}) {
               {role}
             </span>
             <span className="d">{can}</span>
+            <span className="role-check" aria-hidden={current !== role}>
+              ✓ selected
+            </span>
           </button>
         ))}
       </div>
-      <p className="muted" style={{fontSize: '0.82rem', margin: '0.75rem 0 0'}}>
-        Each role is a real Kinde user. Permissions come from Kinde. The demo
-        enforces what each role can do. To use your own account,{' '}
-        <LoginLink>sign in as yourself</LoginLink>.
-      </p>
+
+      {active ? (
+        <p className="role-confirm">
+          You&apos;re acting as{' '}
+          <strong style={{textTransform: 'capitalize'}}>{active.role}</strong> —{' '}
+          {active.can}. Now pick a contract below.
+        </p>
+      ) : (
+        <p
+          className="muted"
+          style={{fontSize: '0.82rem', margin: '0.75rem 0 0'}}
+        >
+          Pick a role to start. Each role is a real Kinde user; permissions come
+          from Kinde and the demo enforces what each can do. To use your own
+          account, <LoginLink>sign in as yourself</LoginLink>.
+        </p>
+      )}
     </div>
   );
 }

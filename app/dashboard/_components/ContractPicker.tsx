@@ -90,33 +90,23 @@ export function ContractPicker({orgCode}: {orgCode: string}) {
 
   return (
     <div>
-      {/* One uniform grid: existing contracts, the sample, and upload, all the
-          same height so nothing has dead space. */}
+      {/* One uniform grid. The two primary paths — load the sample, upload your
+          own — always lead, so a visitor is never left hunting past a list of
+          existing contracts. Any existing contracts follow. */}
       <div className="pick-grid">
-        {list.slice(0, 6).map((c) => (
-          <button
-            key={c._id}
-            className="pick"
-            style={{cursor: 'pointer'}}
-            onClick={() => open(c._id)}
-          >
-            <span className="title">{c.title}</span>
-            <span className="meta">
-              {c.status} · {new Date(c.createdAt).toLocaleDateString()}
-            </span>
-          </button>
-        ))}
-
         <button
-          className="pick"
+          className="pick pick-sample"
           style={{cursor: 'pointer'}}
           disabled={busy !== null}
           onClick={loadSample}
         >
           <span className="title">
             {busy === 'sample' ? 'Loading sample…' : '＋ Load the sample'}
+            {busy !== 'sample' && <span className="pick-tag">recommended</span>}
           </span>
-          <span className="meta">Acme Master Services Agreement</span>
+          <span className="meta">
+            Acme Master Services Agreement · no upload needed
+          </span>
         </button>
 
         <label
@@ -148,6 +138,20 @@ export function ContractPicker({orgCode}: {orgCode: string}) {
           </strong>
           <div className="meta">Drop a .txt contract, or click to choose</div>
         </label>
+
+        {list.slice(0, 6).map((c) => (
+          <button
+            key={c._id}
+            className="pick"
+            style={{cursor: 'pointer'}}
+            onClick={() => open(c._id)}
+          >
+            <span className="title">{c.title}</span>
+            <span className="meta">
+              {c.status} · {new Date(c.createdAt).toLocaleDateString()}
+            </span>
+          </button>
+        ))}
       </div>
 
       {err && (
