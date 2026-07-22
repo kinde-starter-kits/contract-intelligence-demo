@@ -17,6 +17,18 @@ const LABEL: Record<string, string> = {
   run_complete: 'Run complete'
 };
 
+const ICON: Record<string, string> = {
+  run_started: '▶',
+  extractor_started: '⌕',
+  clause_extracted: '¶',
+  clause_assessed: '◇',
+  clause_flagged: '⚑',
+  signoff_attempted: '⋯',
+  signoff_allowed: '✓',
+  signoff_denied: '✕',
+  run_complete: '✦'
+};
+
 /**
  * The live timeline — the watch experience. Subscribes to the latest run's
  * events (Convex reactivity) and renders them as they land, with the two
@@ -81,14 +93,21 @@ export function LiveTape({
 
       {!run ? (
         <div className="empty">
+          <span className="empty-ico" aria-hidden="true">
+            ▶
+          </span>
           Press <strong>Run review</strong> to watch the agent work through this
           contract clause by clause — and watch what happens when it reaches the
           high-risk clause.
         </div>
       ) : events === undefined ? (
-        <div className="empty">Loading…</div>
+        <div className="empty">
+          <span className="spinner" /> Loading the run…
+        </div>
       ) : events.length === 0 ? (
-        <div className="empty">Waiting for the first step…</div>
+        <div className="empty">
+          <span className="spinner" /> Waiting for the first step…
+        </div>
       ) : (
         <ol className="tape">
           {events.map((e) => {
@@ -121,6 +140,9 @@ export function LiveTape({
             return (
               <Fragment key={e._id}>
                 <li className={`ev t-${e.type}`}>
+                  <span className="ev-ico" aria-hidden="true">
+                    {ICON[e.type] ?? '•'}
+                  </span>
                   <div className="ev-row">
                     <span className="ev-label">{LABEL[e.type] ?? e.type}</span>
                     <span className="ev-msg">{e.message}</span>

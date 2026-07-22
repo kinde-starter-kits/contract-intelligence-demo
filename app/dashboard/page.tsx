@@ -2,6 +2,8 @@ import {LogoutLink} from '@kinde-oss/kinde-auth-nextjs/components';
 import {getActingIdentity} from '@/lib/acting-identity';
 import {RoleChooser} from './_components/RoleChooser';
 import {ContractPicker} from './_components/ContractPicker';
+import {AuthorityGap} from './_components/AuthorityGap';
+import {SiteFooter} from './_components/SiteFooter';
 
 export const dynamic = 'force-dynamic';
 
@@ -46,6 +48,7 @@ export default async function Launcher() {
           it never should, and then watch Kinde&apos;s permission check block
           the exact same action.
         </p>
+        <AuthorityGap />
       </section>
 
       <div className="steps">
@@ -73,6 +76,8 @@ export default async function Launcher() {
           )}
         </section>
       </div>
+
+      <SiteFooter />
     </main>
   );
 }
