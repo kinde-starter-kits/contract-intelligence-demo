@@ -393,10 +393,31 @@ a.powered:hover .k {
   .gap-motif {
     grid-template-columns: 1fr;
   }
+  /* Stacked cards: replace the horizontal connector with a clean, contained
+     vertical "acts for" indicator. No rotate() (that kept the line at full
+     column length and bled it through the cards and the paragraph). */
   .gap-arrow {
-    transform: rotate(90deg);
     min-width: 0;
-    height: 30px;
+    padding: 0.1rem 0;
+    gap: 0.3rem;
+  }
+  .gap-arrow .lbl {
+    margin-bottom: 0;
+    order: 2;
+  }
+  .gap-arrow .line {
+    order: 1;
+    width: 1px;
+    height: 18px;
+    margin: 0 auto;
+  }
+  .gap-arrow .line::after {
+    content: '▾';
+    right: auto;
+    left: 50%;
+    top: auto;
+    bottom: -7px;
+    transform: translateX(-50%);
   }
 }
 
