@@ -24,6 +24,32 @@ export function resolveAuthzMode(): AuthzMode {
   return process.env.AUTHZ_MODE === 'intersection' ? 'intersection' : 'broken';
 }
 
+/**
+ * DEMO-ONLY escape hatch. When `DEMO_MODE_SELECTABLE=true` on the deployment,
+ * the trusted demo operator may pick the mode PER RUN (so a visitor can watch
+ * the problem AND the fix without a redeploy). It is OFF by default, and in a
+ * real deployment it stays off: there, the mode is `AUTHZ_MODE` alone and the
+ * calling agent can never choose how strictly it is checked.
+ */
+export function isDemoModeSelectable(): boolean {
+  return process.env.DEMO_MODE_SELECTABLE === 'true';
+}
+
+/**
+ * The effective mode for a review run: the demo operator's requested mode when
+ * mode-selection is enabled AND the request names a valid mode; otherwise the
+ * server's `AUTHZ_MODE`.
+ */
+export function resolveRunMode(requested: unknown): AuthzMode {
+  if (
+    isDemoModeSelectable() &&
+    (requested === 'broken' || requested === 'intersection')
+  ) {
+    return requested;
+  }
+  return resolveAuthzMode();
+}
+
 export interface AuthzDecision {
   mode: AuthzMode;
   allowed: boolean;

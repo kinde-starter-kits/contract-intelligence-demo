@@ -1,7 +1,7 @@
 import {httpRouter} from 'convex/server';
 import {httpAction, ActionCtx} from './_generated/server';
 import {internal} from './_generated/api';
-import {resolveAuthzMode, authorizeAgentAction} from './authz';
+import {resolveRunMode, authorizeAgentAction} from './authz';
 import {resolveOrgUserPermissions} from '../lib/kinde-management';
 
 // This app's permission set — the ceiling passed into the delegation is filtered
@@ -114,9 +114,11 @@ http.route({
     if (!auth.ok) return auth.response;
     const body = await request.json();
     if (!body?.contractId) return json({error: 'missing_contractId'}, 400);
-    // The SERVER decides the authorization mode (deployment env AUTHZ_MODE),
-    // never the calling agent. Any `mode` in the request body is ignored.
-    const mode = resolveAuthzMode();
+    // The SERVER decides the authorization mode (deployment env AUTHZ_MODE).
+    // A `mode` in the request is honored ONLY when the deployment opts into
+    // demo mode-selection (DEMO_MODE_SELECTABLE); otherwise it is ignored, so a
+    // real calling agent can never pick how strictly it is checked.
+    const mode = resolveRunMode(body?.mode);
 
     // Intersection: resolve the acting human's permissions FROM KINDE (their
     // ceiling) and issue their delegation for this run — sourced from Kinde, not
@@ -327,6 +329,43 @@ http.route({
         detail: body.detail
       });
       return json(result, 200);
+    } catch (e) {
+      return json({error: e instanceof Error ? e.message : String(e)}, 400);
+    }
+  })
+});
+
+// POST /agent/ingest  { title, text } -> { contractId, clauseCount, clauses }
+//   Ingest a plain-text contract for the caller's org: create the contract row
+//   and its ordered clause rows. The org comes from the verified crew token; the
+//   uploader is credited to X-Acting-Subject. Returns the clause records so the
+//   Next.js upload route can embed them (client-side ONNX can't run in Convex).
+http.route({
+  path: '/agent/ingest',
+  method: 'POST',
+  handler: httpAction(async (ctx, request) => {
+    const auth = await authenticate(ctx, request);
+    if (!auth.ok) return auth.response;
+    const body = await request.json();
+    const title = typeof body?.title === 'string' ? body.title.trim() : '';
+    const text = typeof body?.text === 'string' ? body.text : '';
+    if (!title) return json({error: 'missing_title'}, 400);
+    if (text.trim().length < 20) return json({error: 'text_too_short'}, 400);
+    if (text.length > 200_000) return json({error: 'text_too_large'}, 400);
+    try {
+      const {contractId, clauseCount} = await ctx.runMutation(
+        internal.ingest.ingestContractText,
+        {
+          orgCode: auth.orgCode,
+          uploadedBy: auth.actingSubject,
+          title,
+          text
+        }
+      );
+      const clauses = await ctx.runQuery(internal.ingest.getClauseRecords, {
+        contractId
+      });
+      return json({contractId, clauseCount, clauses}, 200);
     } catch (e) {
       return json({error: e instanceof Error ? e.message : String(e)}, 400);
     }

@@ -392,6 +392,22 @@ describe('full deterministic run streams events end-to-end', () => {
     const types = events.map((e) => e.type);
     expect(types).toContain('signoff_allowed');
     expect(types).not.toContain('signoff_denied');
+
+    // The money moment: a HIGH-risk clause is among those signed off on the
+    // agent's authority — the exact action the Intern could never take. This is
+    // the data the timeline's confused-deputy callout keys on.
+    const highClauses = new Set(
+      events
+        .filter(
+          (e) => e.type === 'clause_assessed' && e.detail?.riskLevel === 'high'
+        )
+        .map((e) => e.detail?.clauseId)
+    );
+    expect(highClauses.size).toBeGreaterThan(0);
+    const approvedHigh = events.some(
+      (e) => e.type === 'signoff_allowed' && highClauses.has(e.detail?.clauseId)
+    );
+    expect(approvedHigh).toBe(true);
   });
 
   test('intersection mode: an Intern run is denied and streams signoff_denied', async () => {

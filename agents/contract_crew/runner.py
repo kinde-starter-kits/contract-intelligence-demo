@@ -152,13 +152,14 @@ def run_with_crew(
     config: Config | None = None,
     llm_api_key: str | None = None,
     llm_model: str | None = None,
+    authz_mode: str | None = None,
 ) -> ReviewSummary:
     from .crew import build_crew  # imported lazily so no-LLM runs don't need it
 
     config = config or load_config()
     client = _make_client(config, acting_subject)
 
-    started = client.start_review(contract_id)
+    started = client.start_review(contract_id, authz_mode)
     ctx = RunContext(review_run_id=started["reviewRunId"])
 
     # BYOK: the per-run key threads to the LLM only; it is never attached to the

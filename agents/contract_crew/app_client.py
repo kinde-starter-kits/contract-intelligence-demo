@@ -73,10 +73,14 @@ class AppClient:
 
     # --- Review lifecycle ---
 
-    def start_review(self, contract_id: str) -> dict:
-        # The SERVER decides the authorization mode (AUTHZ_MODE); the crew does
-        # not send one. The response reports the effective mode.
-        return self._post_convex("/agent/review/start", {"contractId": contract_id})
+    def start_review(self, contract_id: str, authz_mode: str | None = None) -> dict:
+        # The SERVER decides the authorization mode (AUTHZ_MODE). A demo operator
+        # may request a mode (broken|intersection); the server honors it only when
+        # DEMO_MODE_SELECTABLE is on. The response reports the effective mode.
+        payload: dict = {"contractId": contract_id}
+        if authz_mode:
+            payload["mode"] = authz_mode
+        return self._post_convex("/agent/review/start", payload)
 
     def complete_review(self, review_run_id: str) -> dict:
         return self._post_convex(

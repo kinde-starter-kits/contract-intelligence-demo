@@ -25,8 +25,8 @@ class FakeClient:
         self.calls: list[tuple] = []
         self.seen_text = []
 
-    def start_review(self, contract_id):
-        self.calls.append(("start_review", contract_id))
+    def start_review(self, contract_id, authz_mode=None):
+        self.calls.append(("start_review", contract_id, authz_mode))
         return {"reviewRunId": "run_1", "instanceId": "inst_1"}
 
     def get_clauses(self, contract_id):
@@ -132,7 +132,9 @@ def test_service_threads_key_and_never_returns_it(monkeypatch):
 
     seen = {}
 
-    def fake_run_with_crew(contract_id, acting_subject, *, llm_api_key=None, llm_model=None):
+    def fake_run_with_crew(
+        contract_id, acting_subject, *, llm_api_key=None, llm_model=None, authz_mode=None
+    ):
         seen["key"] = llm_api_key
         return ReviewSummary(
             review_run_id="run_1",

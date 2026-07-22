@@ -57,6 +57,29 @@ export const listContractsByOrg = query({
   }
 });
 
+/** Title + status for one contract (for the review stage header). */
+export const getContractMeta = query({
+  args: {contractId: v.id('contracts')},
+  returns: v.union(
+    v.object({
+      _id: v.id('contracts'),
+      title: v.string(),
+      orgCode: v.string(),
+      status: v.union(
+        v.literal('uploaded'),
+        v.literal('reviewing'),
+        v.literal('reviewed')
+      )
+    }),
+    v.null()
+  ),
+  handler: async (ctx, args) => {
+    const c = await ctx.db.get(args.contractId);
+    if (!c) return null;
+    return {_id: c._id, title: c.title, orgCode: c.orgCode, status: c.status};
+  }
+});
+
 /**
  * List the clauses of a contract in clause order. Scoped by `contractId`;
  * callers pass `orgCode` so this can be tenant-checked once access control

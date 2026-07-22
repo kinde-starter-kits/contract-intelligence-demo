@@ -36,6 +36,9 @@ class RunRequest(BaseModel):
     apiKey: str | None = None
     model: str | None = None
     mode: str = "crew"
+    # Demo operator's requested authorization mode (broken|intersection); the
+    # Convex server honors it only when DEMO_MODE_SELECTABLE is on.
+    authzMode: str | None = None
 
 
 def _has_server_fallback_key() -> bool:
@@ -71,6 +74,7 @@ def run(req: RunRequest) -> dict:
                 req.actingSubject,
                 llm_api_key=key,
                 llm_model=req.model,
+                authz_mode=req.authzMode,
             )
     except HTTPException:
         raise
