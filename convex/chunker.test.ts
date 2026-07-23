@@ -114,16 +114,20 @@ describe('chunkContract — deterministic clause splitting', () => {
     expect(JSON.stringify(a)).toBe(JSON.stringify(b));
   });
 
-  test('acme fixture splits into its 7 numbered clauses plus preamble', () => {
+  test('sample MSA splits into its 13 numbered clauses plus preamble', () => {
     const text = readFileSync(
       join(__dirname, '..', 'fixtures', 'acme-msa.txt'),
       'utf-8'
     );
     const result = chunkContract(text);
-    // Title/preamble block + clauses 1..7.
-    expect(result).toHaveLength(8);
+    // Title/preamble block + clauses 1..13.
+    expect(result).toHaveLength(14);
     expect(result[0].text).toContain('MASTER SERVICES AGREEMENT');
-    expect(result[1].text.startsWith('1. Term.')).toBe(true);
-    expect(result[7].text.startsWith('7. Governing Law.')).toBe(true);
+    expect(result[1].text.startsWith('1. Term and Automatic Renewal.')).toBe(
+      true
+    );
+    expect(
+      result[13].text.startsWith('13. Notices and Entire Agreement.')
+    ).toBe(true);
   });
 });

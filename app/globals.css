@@ -1082,6 +1082,14 @@ select:focus {
   text-transform: uppercase;
   letter-spacing: 0.03em;
 }
+/* Critical is the loudest risk: a solid red fill, white text — legible and
+   unmissable on white next to the outlined high/medium/low tags. */
+.ev-tag.risk-critical {
+  color: #fff;
+  background: var(--alarm);
+  border-color: var(--alarm);
+  font-weight: 700;
+}
 .ev-tag.risk-high {
   color: var(--alarm);
   border-color: color-mix(in srgb, var(--alarm) 40%, transparent);
@@ -1383,6 +1391,10 @@ tbody tr:last-child td {
   background: currentColor;
   display: inline-block;
 }
+.risk-critical {
+  color: var(--alarm);
+  font-weight: 700;
+}
 .risk-high {
   color: var(--high);
 }
@@ -1635,6 +1647,16 @@ tr.row-deny .cid-chip {
   border-color: color-mix(in srgb, var(--alarm) 32%, transparent);
 }
 
+/* The clauses table leads with the dangerous rows (sorted in the component); a
+   subtle red tint makes critical/high rows obvious at a glance, echoing the
+   timeline's risk tags. Critical is the loudest; high is a lighter wash. */
+tr.row-critical td {
+  background: var(--alarm-weak);
+}
+tr.row-high td {
+  background: color-mix(in srgb, var(--alarm) 5%, transparent);
+}
+
 .table-scroll {
   overflow-x: auto;
 }
@@ -1758,6 +1780,254 @@ tr.row-deny .cid-chip {
 .auth-card,
 details.evidence {
   box-shadow: var(--shadow-1);
+}
+
+/* ============================================================================
+   R8 — realistic scenario, unmistakable failure
+   ============================================================================ */
+
+/* ---- Current user badge (sticky, always visible) ----
+   Every approval the agent makes in broken mode should visibly contradict a ✗
+   on this badge. So it stays pinned at the top of the review while the timeline
+   scrolls. */
+.current-user {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem 1.4rem;
+  flex-wrap: wrap;
+  padding: 0.8rem 1.1rem;
+  margin-bottom: 1.5rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--panel);
+  box-shadow: var(--shadow-2);
+}
+.cu-eyebrow {
+  display: block;
+  font-family: var(--font-mono);
+  font-size: 0.6rem;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--mute);
+}
+.cu-id {
+  display: grid;
+  gap: 0.1rem;
+}
+.cu-role {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 1.15rem;
+  letter-spacing: -0.02em;
+  color: var(--bone);
+}
+.cu-perms {
+  display: flex;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+}
+.cu-perm {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 0.28rem 0.62rem;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+}
+.cu-perm b {
+  font-size: 0.82rem;
+  line-height: 1;
+}
+.cu-perm.ok {
+  color: var(--guard-2);
+  border-color: color-mix(in srgb, var(--guard) 35%, var(--line));
+  background: var(--guard-weak);
+}
+.cu-perm.no {
+  color: var(--alarm-2);
+  border-color: color-mix(in srgb, var(--alarm) 42%, var(--line));
+  background: var(--alarm-weak);
+}
+.cu-contract {
+  display: grid;
+  gap: 0.1rem;
+  margin-left: auto;
+  text-align: right;
+  min-width: 0;
+}
+.cu-cname {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 0.85rem;
+  color: var(--bone);
+  /* Give the real contract name room to read: wrap to at most two lines on
+     desktop instead of ellipsising the name that sells the realism. */
+  max-width: 46ch;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  line-height: 1.3;
+}
+.cu-change {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+}
+@media (max-width: 620px) {
+  .current-user {
+    position: static;
+    gap: 0.6rem 1rem;
+  }
+  .cu-contract {
+    margin-left: 0;
+    text-align: left;
+  }
+  .cu-cname {
+    max-width: 100%;
+    -webkit-line-clamp: unset;
+  }
+}
+
+/* ---- The verdict (leads the timeline once a run finishes) ---- */
+.verdict {
+  border: 1px solid var(--line);
+  border-left-width: 4px;
+  border-radius: var(--radius);
+  padding: 1rem 1.15rem;
+  margin-bottom: 1rem;
+}
+.verdict-eyebrow {
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  font-weight: 700;
+}
+.verdict-head {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 1.12rem;
+  line-height: 1.3;
+  letter-spacing: -0.01em;
+  margin: 0.4rem 0 0;
+  color: var(--bone);
+}
+.verdict-sub {
+  font-size: 0.9rem;
+  color: var(--bone-dim);
+  margin: 0.45rem 0 0;
+}
+.verdict-head code,
+.verdict-sub code {
+  font-family: var(--font-mono);
+  font-size: 0.85em;
+  padding: 0.05rem 0.3rem;
+  border-radius: 4px;
+  background: var(--ink-2);
+  color: var(--bone);
+}
+.verdict.bad {
+  border-color: color-mix(in srgb, var(--alarm) 45%, var(--line));
+  border-left-color: var(--alarm);
+  background: var(--alarm-weak);
+}
+.verdict.bad .verdict-eyebrow {
+  color: var(--alarm-2);
+}
+.verdict.good {
+  border-color: color-mix(in srgb, var(--guard) 40%, var(--line));
+  border-left-color: var(--guard);
+  background: var(--guard-weak);
+}
+.verdict.good .verdict-eyebrow {
+  color: var(--guard-2);
+}
+.verdict.note {
+  border-color: color-mix(in srgb, var(--amber) 40%, var(--line));
+  border-left-color: var(--amber);
+  background: color-mix(in srgb, var(--amber) 10%, transparent);
+}
+.verdict.note .verdict-eyebrow {
+  color: var(--amber);
+}
+
+/* ---- Scoreboard (real numbers from the run) ---- */
+.scoreboard {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(92px, 1fr));
+  gap: 0.5rem;
+  margin-bottom: 1.35rem;
+}
+.stat {
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  padding: 0.6rem 0.5rem;
+  text-align: center;
+  background: var(--ink-2);
+  display: grid;
+  gap: 0.15rem;
+  align-content: center;
+}
+.stat-n {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 1.35rem;
+  letter-spacing: -0.02em;
+  color: var(--bone);
+  line-height: 1;
+}
+.stat-k {
+  font-family: var(--font-mono);
+  font-size: 0.6rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--mute);
+  line-height: 1.3;
+}
+.stat.warn {
+  border-color: color-mix(in srgb, var(--amber) 45%, var(--line));
+}
+.stat.warn .stat-n {
+  color: var(--amber);
+}
+.stat.good {
+  border-color: color-mix(in srgb, var(--guard) 40%, var(--line));
+  background: var(--guard-weak);
+}
+.stat.good .stat-n {
+  color: var(--guard-2);
+}
+.stat.bad {
+  border-color: color-mix(in srgb, var(--alarm) 48%, var(--line));
+  background: var(--alarm-weak);
+}
+.stat.bad .stat-n {
+  color: var(--alarm);
+}
+
+/* ---- Sticky authorize() snippet (desktop only) ----
+   Keeps the key call visible while the reader scrolls the long timeline beside
+   it. Offset clears the pinned Current user badge above. On mobile the rail
+   stacks above the timeline, so sticky is dropped to avoid overlap. */
+@media (min-width: 941px) {
+  /* Stretch the rail to the full stage height so the sticky snippet has room to
+     stay pinned while the taller timeline scrolls beside it. align-content:start
+     keeps the two rail cards compact at the top (extra height as empty space
+     below) instead of stretching them, which is what lets the snippet pin. */
+  .rail {
+    align-self: stretch;
+    align-content: start;
+  }
+  .maps-sticky {
+    position: sticky;
+    top: 4.5rem;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

@@ -7,6 +7,7 @@ import {getActingIdentity} from '@/lib/acting-identity';
 import {PERMISSIONS} from '@/lib/permissions';
 import {RoleChooser} from '../../_components/RoleChooser';
 import {GuestSwitcher} from '../../_components/GuestSwitcher';
+import {CurrentUserBadge} from '../../_components/CurrentUserBadge';
 import {ReviewWorkbench} from '../../_components/ReviewWorkbench';
 import {Clauses} from '../../_components/Clauses';
 import {Audit} from '../../_components/Audit';
@@ -55,11 +56,10 @@ export default async function Stage({
   const actorNoun = guestRole ?? 'you';
   const canApprove = identity.granted[PERMISSIONS.CLAUSES_APPROVE] ?? false;
   const canFlag = identity.granted[PERMISSIONS.CLAUSES_FLAG] ?? false;
-  const capability = canApprove
-    ? 'read + flag + approve'
-    : canFlag
-      ? 'read + flag'
-      : 'read only';
+  const canRead = identity.granted[PERMISSIONS.CONTRACTS_READ] ?? false;
+  const roleLabel = guestRole
+    ? `${guestRole.charAt(0).toUpperCase()}${guestRole.slice(1)}`
+    : (identity.label ?? 'You');
 
   return (
     <main className="shell">
@@ -88,25 +88,14 @@ export default async function Stage({
         <Link href="/dashboard">← Setup</Link>
       </div>
 
-      <div className="setup-ribbon">
-        <span className="rib">
-          <span className="k">acting as</span>
-          <span className="v" style={{textTransform: 'capitalize'}}>
-            {guestRole ?? identity.label}
-          </span>
-          <span className="muted mono">· {capability}</span>
-        </span>
-        <span className="rib">
-          <span className="k">contract</span>
-          <span className="v">{meta?.title ?? 'this contract'}</span>
-        </span>
-        <Link
-          href="/dashboard"
-          style={{marginLeft: 'auto', fontSize: '0.82rem'}}
-        >
-          change
-        </Link>
-      </div>
+      <CurrentUserBadge
+        roleLabel={roleLabel}
+        canRead={canRead}
+        canFlag={canFlag}
+        canApprove={canApprove}
+        contractTitle={meta?.title ?? 'this contract'}
+        changeHref="/dashboard"
+      />
 
       <ReviewWorkbench
         contractId={contractId}

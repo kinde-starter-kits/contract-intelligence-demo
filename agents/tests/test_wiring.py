@@ -125,8 +125,15 @@ def test_app_client_sends_token_and_acting_subject():
 
 def test_risk_rules_are_deterministic():
     assert assess_risk("Definitions apply as follows.")[0] == "low"
-    assert assess_risk("Limitation of Liability is capped.")[0] == "medium"
+    assert assess_risk("The warranty is limited as stated.")[0] == "medium"
     assert assess_risk("Provider shall indemnify Customer.")[0] == "high"
+    # The scariest terms escalate to critical.
+    assert assess_risk("Customer liability shall be uncapped.")[0] == "critical"
+    assert assess_risk("Each party waives any class action.")[0] == "critical"
+    # A rule also returns its human label as the third element.
+    assert assess_risk("Customer liability shall be uncapped.")[2] == (
+        "uncapped liability"
+    )
     # Same input twice → same output.
     assert assess_risk("Governing law is Delaware.") == assess_risk(
         "Governing law is Delaware."

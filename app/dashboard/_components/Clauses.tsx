@@ -7,9 +7,16 @@ import type {Id} from '@/convex/_generated/dataModel';
 import {approveClauseAsHuman, type ApproveResult} from '../actions';
 import {errorText} from '@/lib/error-text';
 
-function riskClass(level: string) {
-  return `risk-${level}`;
-}
+// Rank so the receipts echo the finding: critical first, low last. This only
+// reorders the DISPLAY — each row still shows its own clause number, and the
+// data is untouched.
+const RISK_RANK: Record<string, number> = {
+  critical: 4,
+  high: 3,
+  medium: 2,
+  low: 1,
+  unassessed: 0
+};
 function statusBadge(status: string) {
   if (status === 'approved') return 'ok';
   if (status === 'flagged') return 'warn';
@@ -35,6 +42,15 @@ export function Clauses({
   const [, startTransition] = useTransition();
 
   const showApprove = canApprove || revealControls;
+
+  // Highest risk at the top; ties keep document order.
+  const ordered = clauses
+    ? [...clauses].sort(
+        (a, b) =>
+          (RISK_RANK[b.riskLevel] ?? 0) - (RISK_RANK[a.riskLevel] ?? 0) ||
+          a.index - b.index
+      )
+    : clauses;
 
   function onApprove(clauseId: string) {
     setPendingId(clauseId);
@@ -98,12 +114,24 @@ export function Clauses({
               </tr>
             </thead>
             <tbody>
-              {clauses.map((c) => (
+              {ordered!.map((c) => (
                 <Fragment key={c._id}>
-                  <tr>
+                  <tr
+                    className={
+                      c.riskLevel === 'critical'
+                        ? 'row-critical'
+                        : c.riskLevel === 'high'
+                          ? 'row-high'
+                          : undefined
+                    }
+                  >
                     <td className="muted">{c.index}</td>
                     <td className="clause-text">{c.text}</td>
-                    <td className={riskClass(c.riskLevel)}>{c.riskLevel}</td>
+                    <td>
+                      <span className={`ev-tag risk-${c.riskLevel}`}>
+                        {c.riskLevel}
+                      </span>
+                    </td>
                     <td>
                       <span className={`badge ${statusBadge(c.status)}`}>
                         {c.status}
