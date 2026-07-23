@@ -23,7 +23,7 @@ describe('ingestion: fixture contract → contract row + ordered clauses', () =>
       }
     );
 
-    expect(clauseCount).toBe(8); // preamble + 7 numbered clauses
+    expect(clauseCount).toBe(14); // preamble + 13 numbered clauses
 
     // Contract row exists with session-derived fields.
     const contract = await t.run(async (ctx) => ctx.db.get(contractId));
@@ -35,8 +35,12 @@ describe('ingestion: fixture contract → contract row + ordered clauses', () =>
     const clauses = await t.query(api.contracts.listClausesByContract, {
       contractId
     });
-    expect(clauses.map((c) => c.index)).toEqual([0, 1, 2, 3, 4, 5, 6, 7]);
-    expect(clauses[1].text.startsWith('1. Term.')).toBe(true);
+    expect(clauses.map((c) => c.index)).toEqual([
+      0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13
+    ]);
+    expect(clauses[1].text.startsWith('1. Term and Automatic Renewal.')).toBe(
+      true
+    );
     expect(clauses.every((c) => c.riskLevel === 'unassessed')).toBe(true);
     expect(clauses.every((c) => c.status === 'pending')).toBe(true);
     expect(clauses.every((c) => c.orgCode === 'org_acme')).toBe(true);
@@ -68,12 +72,14 @@ describe('ingestion: fixture contract → contract row + ordered clauses', () =>
     );
     // Convex writes the structured clause rows; embedding is a client-side step
     // in the app layer (Transformers.js), not a Convex function.
-    expect(result.clauseCount).toBe(8);
+    expect(result.clauseCount).toBe(14);
 
     const clauses = await t.query(api.contracts.listClausesByContract, {
       contractId
     });
-    expect(clauses.map((c) => c.index)).toEqual([0, 1, 2, 3, 4, 5, 6, 7]);
+    expect(clauses.map((c) => c.index)).toEqual([
+      0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13
+    ]);
   });
 });
 

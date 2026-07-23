@@ -49,27 +49,34 @@ class ReviewSummary:
 
 # --- Deterministic (no-LLM) risk assessment -------------------------------
 
-_HIGH = ("indemnif", "unlimited liability", "penalty", "liquidated damages")
-_MEDIUM = (
-    "limitation of liability",
-    "liability",
-    "terminat",
-    "governing law",
-    "confidential",
-    "warrant",
-    "indemn",
+# Ordered rules, scariest tier first; first keyword hit wins. Each rule carries a
+# short human label so the timeline can say WHAT is dangerous, not just a level.
+# Mirrors lib/agent-run.ts::RULES so the TS driver and this crew agree on risk.
+_RULES: tuple[tuple[str, str, tuple[str, ...]], ...] = (
+    ("critical", "uncapped liability", ("uncapped", "unlimited liability")),
+    ("critical", "class-action waiver", ("class action", "class-action")),
+    ("high", "auto-renewal (evergreen)", ("automatically renew", "auto-renew", "evergreen")),
+    ("high", "broad indemnification", ("indemnif",)),
+    ("high", "GDPR / data-processing obligations", ("personal data", "gdpr", "data protection")),
+    ("high", "HIPAA / PHI handling", ("protected health information", "hipaa")),
+    ("high", "IP assignment / work-for-hire", ("work made for hire", "irrevocably assign")),
+    ("high", "non-compete / non-solicit", ("non-compete", "non-competition", "non-solicit")),
+    ("high", "mandatory arbitration", ("arbitration",)),
+    ("medium", "late-payment penalties", ("late payment", "past due")),
+    ("medium", "warranty disclaimer", ("warrant",)),
+    ("medium", "termination terms", ("terminat",)),
+    ("medium", "confidentiality terms", ("confidential",)),
 )
 
 
-def assess_risk(text: str) -> tuple[str, str]:
+def assess_risk(text: str) -> tuple[str, str, str]:
+    """Return (level, rationale, label). Risk scoring only — never affects authz."""
     lowered = text.lower()
-    for kw in _HIGH:
-        if kw in lowered:
-            return "high", f"Contains high-risk language ('{kw}')."
-    for kw in _MEDIUM:
-        if kw in lowered:
-            return "medium", f"Contains risk-relevant language ('{kw}'); review advised."
-    return "low", "Boilerplate / low-risk clause."
+    for level, label, keywords in _RULES:
+        if any(kw in lowered for kw in keywords):
+            word = {"critical": "Critical", "high": "High"}.get(level, "Medium")
+            return level, f"{word} risk: {label}.", label
+    return "low", "Standard, low-risk boilerplate.", "standard terms"
 
 
 def _make_client(config: Config, acting_subject: str) -> AppClient:
@@ -113,12 +120,24 @@ def run_deterministic(
         except Exception as exc:  # pragma: no cover - network best-effort
             print(f"  (similar retrieval skipped for {clause['clauseId']}: {exc})")
 
-        risk, rationale = assess_risk(clause["text"])
+        risk, rationale, label = assess_risk(clause["text"])
+        assessed_msg = (
+            f"Clause {idx} assessed: {risk.upper()} — {label}."
+            if risk in ("critical", "high")
+            else f"Clause {idx} assessed: medium risk — {label}."
+            if risk == "medium"
+            else f"Clause {idx} assessed: low risk."
+        )
         client.emit_event(
             review_run_id,
             "clause_assessed",
-            f"Clause {idx} assessed: {risk} risk.",
-            {"clauseId": clause["clauseId"], "clauseIndex": idx, "riskLevel": risk},
+            assessed_msg,
+            {
+                "clauseId": clause["clauseId"],
+                "clauseIndex": idx,
+                "riskLevel": risk,
+                "label": label,
+            },
         )
         ctx.flagged.append(
             client.flag_clause(review_run_id, clause["clauseId"], risk, rationale)

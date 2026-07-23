@@ -101,7 +101,8 @@ export const listClausesByContract = query({
         v.literal('unassessed'),
         v.literal('low'),
         v.literal('medium'),
-        v.literal('high')
+        v.literal('high'),
+        v.literal('critical')
       ),
       status: v.union(
         v.literal('pending'),

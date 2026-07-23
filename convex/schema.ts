@@ -43,7 +43,8 @@ export default defineSchema({
       v.literal('unassessed'),
       v.literal('low'),
       v.literal('medium'),
-      v.literal('high')
+      v.literal('high'),
+      v.literal('critical')
     ),
     status: v.union(
       v.literal('pending'),
@@ -90,6 +91,7 @@ export default defineSchema({
         clauseId: v.optional(v.string()),
         clauseIndex: v.optional(v.number()),
         riskLevel: v.optional(v.string()),
+        label: v.optional(v.string()),
         status: v.optional(v.string()),
         reason: v.optional(v.string()),
         correlationId: v.optional(v.string())

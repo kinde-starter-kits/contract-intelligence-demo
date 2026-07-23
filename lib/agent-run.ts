@@ -19,48 +19,95 @@
  * The BYOK LLM crew is a separate, opt-in path (the Python FastAPI service).
  */
 
-export type RiskLevel = 'low' | 'medium' | 'high';
+export type RiskLevel = 'low' | 'medium' | 'high' | 'critical';
 
-// Mirrors agents/contract_crew/runner.py::assess_risk so the TS driver and the
-// Python crew agree on risk.
-const HIGH = [
-  'indemnif',
-  'unlimited liability',
-  'penalty',
-  'liquidated damages'
-];
-const MEDIUM = [
-  'limitation of liability',
-  'liability',
-  'terminat',
-  'governing law',
-  'confidential',
-  'warrant',
-  'indemn'
+/**
+ * Rule-based risk classifier. Ordered rules, first keyword hit wins, checked
+ * from the scariest tier down. Each rule carries a short human `label` so the
+ * timeline can say exactly WHAT is dangerous ("CRITICAL — uncapped liability"),
+ * not just a level. Mirrors agents/contract_crew/runner.py::assess_risk so the
+ * deterministic TS driver and the LLM crew agree on risk.
+ *
+ * This is risk SCORING only — it never affects authorization. Whether a sign-off
+ * is allowed is decided by authorize() (user ∩ agent), independent of risk.
+ */
+interface RiskRule {
+  level: Exclude<RiskLevel, 'low'>;
+  label: string;
+  keywords: string[];
+}
+
+const RULES: RiskRule[] = [
+  // CRITICAL — the terms a procurement team must never let through unchecked.
+  {
+    level: 'critical',
+    label: 'uncapped liability',
+    keywords: ['uncapped', 'unlimited liability']
+  },
+  {
+    level: 'critical',
+    label: 'class-action waiver',
+    keywords: ['class action', 'class-action']
+  },
+  // HIGH — severe, standard-but-dangerous terms.
+  {
+    level: 'high',
+    label: 'auto-renewal (evergreen)',
+    keywords: ['automatically renew', 'auto-renew', 'evergreen']
+  },
+  {level: 'high', label: 'broad indemnification', keywords: ['indemnif']},
+  {
+    level: 'high',
+    label: 'GDPR / data-processing obligations',
+    keywords: ['personal data', 'gdpr', 'data protection']
+  },
+  {
+    level: 'high',
+    label: 'HIPAA / PHI handling',
+    keywords: ['protected health information', 'hipaa']
+  },
+  {
+    level: 'high',
+    label: 'IP assignment / work-for-hire',
+    keywords: ['work made for hire', 'irrevocably assign']
+  },
+  {
+    level: 'high',
+    label: 'non-compete / non-solicit',
+    keywords: ['non-compete', 'non-competition', 'non-solicit']
+  },
+  {level: 'high', label: 'mandatory arbitration', keywords: ['arbitration']},
+  // MEDIUM — worth a look.
+  {
+    level: 'medium',
+    label: 'late-payment penalties',
+    keywords: ['late payment', 'past due']
+  },
+  {level: 'medium', label: 'warranty disclaimer', keywords: ['warrant']},
+  {level: 'medium', label: 'termination terms', keywords: ['terminat']},
+  {level: 'medium', label: 'confidentiality terms', keywords: ['confidential']}
 ];
 
 export function assessRisk(text: string): {
   level: RiskLevel;
   rationale: string;
+  label: string;
 } {
   const lowered = text.toLowerCase();
-  for (const kw of HIGH) {
-    if (lowered.includes(kw)) {
+  for (const rule of RULES) {
+    if (rule.keywords.some((kw) => lowered.includes(kw))) {
       return {
-        level: 'high',
-        rationale: `Contains high-risk language ('${kw}').`
+        level: rule.level,
+        label: rule.label,
+        rationale: `${rule.level === 'critical' ? 'Critical' : rule.level === 'high' ? 'High' : 'Medium'} risk: ${rule.label}.`
       };
     }
   }
-  for (const kw of MEDIUM) {
-    if (lowered.includes(kw)) {
-      return {
-        level: 'medium',
-        rationale: `Contains risk-relevant language ('${kw}'); review advised.`
-      };
-    }
-  }
-  return {level: 'low', rationale: 'Boilerplate / low-risk clause.'};
+  return {
+    level: 'low',
+    label: 'standard terms',
+    rationale: 'Standard, low-risk boilerplate.'
+  };
 }
 
 /** Transport-agnostic POST: returns the parsed status + body for a crew path. */
@@ -162,13 +209,21 @@ export async function runDeterministicReview(
       {clauseId: clause.clauseId, clauseIndex: clause.index}
     );
 
-    const {level, rationale} = assessRisk(clause.text);
-    await emit(
-      reviewRunId,
-      'clause_assessed',
-      `Clause ${clause.index} assessed: ${level} risk.`,
-      {clauseId: clause.clauseId, clauseIndex: clause.index, riskLevel: level}
-    );
+    const {level, rationale, label} = assessRisk(clause.text);
+    // Surface WHAT is dangerous, not just the level: "CRITICAL — uncapped
+    // liability." reads far louder than "critical risk."
+    const assessedMsg =
+      level === 'critical' || level === 'high'
+        ? `Clause ${clause.index} assessed: ${level.toUpperCase()} — ${label}.`
+        : level === 'medium'
+          ? `Clause ${clause.index} assessed: medium risk — ${label}.`
+          : `Clause ${clause.index} assessed: low risk.`;
+    await emit(reviewRunId, 'clause_assessed', assessedMsg, {
+      clauseId: clause.clauseId,
+      clauseIndex: clause.index,
+      riskLevel: level,
+      label
+    });
 
     const flag = await post('/agent/flag', {
       reviewRunId,

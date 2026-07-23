@@ -6,6 +6,7 @@ export interface RunEventDetail {
   clauseId?: string;
   clauseIndex?: number;
   riskLevel?: string;
+  label?: string; // short human phrase for the risk, e.g. "uncapped liability"
   status?: string;
   reason?: string;
   correlationId?: string;
@@ -56,6 +57,7 @@ const eventDetail = v.object({
   clauseId: v.optional(v.string()),
   clauseIndex: v.optional(v.number()),
   riskLevel: v.optional(v.string()),
+  label: v.optional(v.string()),
   status: v.optional(v.string()),
   reason: v.optional(v.string()),
   correlationId: v.optional(v.string())

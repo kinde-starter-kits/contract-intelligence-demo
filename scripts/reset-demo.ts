@@ -132,9 +132,17 @@ async function main() {
     `Deleted: ${del.contracts} contracts, ${del.clauses} clauses, ${del.reviewRuns} review runs.`
   );
 
-  // 2. Clear the org's Weaviate clause tenant.
-  await withWeaviate((c) => clearOrgClauses(c, ORG));
-  console.log('Cleared the org’s Weaviate clause tenant.');
+  // 2. Clear the org's Weaviate clause tenant. Best-effort: embeddings are a
+  //    retrieval convenience, not required for a run, so a Weaviate outage must
+  //    never leave the demo org empty.
+  try {
+    await withWeaviate((c) => clearOrgClauses(c, ORG));
+    console.log('Cleared the org’s Weaviate clause tenant.');
+  } catch (err) {
+    console.warn(
+      `⚠ Skipped clearing Weaviate (embeddings best-effort): ${err instanceof Error ? err.message : err}`
+    );
+  }
 
   // 3. Ingest a fresh contract.
   const text = readFileSync(join(root, 'fixtures', 'acme-msa.txt'), 'utf-8');
@@ -164,8 +172,14 @@ async function main() {
     '[',
     ']'
   );
-  await withWeaviate((c) => upsertClauses(c, ORG, records));
-  console.log(`Embedded ${records.length} clauses.`);
+  try {
+    await withWeaviate((c) => upsertClauses(c, ORG, records));
+    console.log(`Embedded ${records.length} clauses.`);
+  } catch (err) {
+    console.warn(
+      `⚠ Skipped embedding ${records.length} clauses (Weaviate unavailable; a run does not need vectors): ${err instanceof Error ? err.message : err}`
+    );
+  }
 
   // 5. Flag the high-risk clause as the ADMIN (allowed) — no intern approvals.
   const token = await mintToken();
@@ -188,15 +202,15 @@ async function main() {
     {
       reviewRunId: adminRun.body.reviewRunId,
       clauseId: risky.clauseId,
-      riskLevel: 'high',
+      riskLevel: 'critical',
       rationale:
-        'Caps aggregate liability — high risk; sign-off needs approve authority.'
+        'Uncapped, unlimited customer liability — critical risk; sign-off needs approve authority.'
     },
     token,
     ADMIN
   );
   console.log(
-    `Flagged the "Limitation of Liability" clause HIGH as the Admin (HTTP ${flagged.status}).`
+    `Flagged the "Limitation of Liability" clause CRITICAL as the Admin (HTTP ${flagged.status}).`
   );
 
   // 6. Verify: no clause is approved-by-intern.

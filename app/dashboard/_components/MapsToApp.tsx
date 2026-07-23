@@ -5,7 +5,7 @@
  */
 export function MapsToApp() {
   return (
-    <div className="aside">
+    <div className="aside maps-sticky">
       <h3>How this maps to your app</h3>
       <p className="aside-sub">The key call, where the agent acts:</p>
       <pre className="codeblock">
