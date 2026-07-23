@@ -22,7 +22,8 @@ import {insertRunEvent} from './runEvents';
 const clauseRiskLevel = v.union(
   v.literal('low'),
   v.literal('medium'),
-  v.literal('high')
+  v.literal('high'),
+  v.literal('critical')
 );
 
 // The authorization decision computed at the HTTP/action layer
@@ -107,7 +108,8 @@ export const listClausesForAgent = internalQuery({
         v.literal('unassessed'),
         v.literal('low'),
         v.literal('medium'),
-        v.literal('high')
+        v.literal('high'),
+        v.literal('critical')
       ),
       status: v.union(
         v.literal('pending'),

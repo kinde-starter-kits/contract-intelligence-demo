@@ -5,4 +5,5 @@
  * more than one sample: the route reuses an existing match instead of inserting
  * a fresh copy, and the reset deletes-all-then-seeds-one under the same name.
  */
-export const SAMPLE_CONTRACT_TITLE = 'Acme Master Services Agreement (sample)';
+export const SAMPLE_CONTRACT_TITLE =
+  'Meridian Cloud Services — Master Services Agreement';

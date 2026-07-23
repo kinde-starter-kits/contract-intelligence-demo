@@ -86,15 +86,15 @@ describe('agent review endpoints (internal logic)', () => {
       orgCode: ORG,
       contractId
     });
-    expect(clauses.length).toBe(8);
+    expect(clauses.length).toBe(14);
 
     const flagged = await t.mutation(internal.agentReview.flagClause, {
       orgCode: ORG,
       actingSubject: HUMAN,
       reviewRunId,
-      clauseId: clauses[4].clauseId, // "Limitation of Liability"
-      riskLevel: 'high',
-      rationale: 'Liability cap.',
+      clauseId: clauses[3].clauseId, // "3. Limitation of Liability" (uncapped)
+      riskLevel: 'critical',
+      rationale: 'Uncapped liability.',
       authz: BROKEN_AUTHZ
     });
     expect(flagged.status).toBe('flagged');
@@ -109,11 +109,11 @@ describe('agent review endpoints (internal logic)', () => {
     expect(approved.status).toBe('approved');
 
     const [flaggedRow, approvedRow] = await t.run(async (ctx) => [
-      await ctx.db.get(clauses[4].clauseId),
+      await ctx.db.get(clauses[3].clauseId),
       await ctx.db.get(clauses[0].clauseId)
     ]);
     // Decisions are credited to the acting human, and tied to the run's instance.
-    expect(flaggedRow?.riskLevel).toBe('high');
+    expect(flaggedRow?.riskLevel).toBe('critical');
     expect(flaggedRow?.decidedBy).toBe(HUMAN);
     expect(flaggedRow?.decisionCorrelationId).toContain(instanceId);
     expect(approvedRow?.status).toBe('approved');
