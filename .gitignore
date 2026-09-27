@@ -50,6 +50,3 @@ __pycache__/
 *.egg-info/
 .pytest_cache/
 .vercel
-branch_structure.json
-temp_auto_push.bat
-temp_interactive_push.bat
